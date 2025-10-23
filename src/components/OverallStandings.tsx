@@ -1,7 +1,5 @@
 'use client';
 
-import { Trophy } from 'lucide-react';
-
 const leaderboardData = [
   {
     rank: 1,
@@ -94,7 +92,7 @@ export default function OverallStandings() {
       
       {/* Teams List */}
       <div className="space-y-3">
-        {leaderboardData.map((team, index) => (
+        {leaderboardData.map((team) => (
           <div 
             key={team.rank} 
             className="grid grid-cols-12 gap-4 items-center bg-white hover:bg-gray-50 rounded-xl p-3 transition-colors"

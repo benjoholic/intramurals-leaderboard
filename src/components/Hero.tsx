@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Trophy, Calendar, Users, Target, Play, TrendingUp, MapPin, Medal, Award, Info, Sparkles, UserPlus } from "lucide-react";
 
 function FloatingPaths({ position }: { position: number }) {
   const paths = Array.from({ length: 36 }, (_, i) => ({

@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import {
   Trophy,
   Calendar,
   Users,
   Target,
   Play,
-  TrendingUp,
   ChevronRight,
   ChevronDown,
   MapPin,
@@ -21,18 +21,16 @@ import {
   Mail,
   Phone,
   Medal,
-  Award,
   Info,
   Sparkles
 } from "lucide-react"
-import Image from 'next/image';
-import Hero from "./component/Hero";
-import Header from "./component/Header";
-import Marquee from "./component/Marquee";
-import OverallStandings from "./component/OverallStandings";
+import Hero from "../components/Hero";
+import Header from "../components/Header";
+import Marquee from "../components/Marquee";
+import OverallStandings from "../components/OverallStandings";
 
 // Custom Button Component
-interface ButtonProps {
+interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'className'> {
   children: React.ReactNode
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost'
   size?: 'sm' | 'md' | 'lg' | 'xl'
@@ -184,6 +182,7 @@ interface VisibilityState {
 }
 
 export default function IntramuralLeaderboard() {
+  const router = useRouter()
   const [isVisible, setIsVisible] = useState<VisibilityState>({
     hero: false,
     features: false,
@@ -191,7 +190,6 @@ export default function IntramuralLeaderboard() {
     leaderboard: false,
     cta: false
   })
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -211,15 +209,8 @@ export default function IntramuralLeaderboard() {
     const sections = document.querySelectorAll("[data-animate]")
     sections.forEach((section) => observer.observe(section))
 
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY })
-    }
-
-    window.addEventListener("mousemove", handleMouseMove)
-
     return () => {
       observer.disconnect()
-      window.removeEventListener("mousemove", handleMouseMove)
     }
   }, [])
 
@@ -230,39 +221,6 @@ export default function IntramuralLeaderboard() {
     { name: "Tennis", icon: "🎾", teams: 16, matches: 52, color: "from-yellow-400 to-yellow-600" },
     { name: "Swimming", icon: "🏊", teams: 6, matches: 18, color: "from-cyan-400 to-cyan-600" },
     { name: "Track & Field", icon: "🏃", teams: 14, matches: 42, color: "from-purple-400 to-purple-600" },
-  ]
-
-  const leaderboardData = [
-    { rank: 1, team: "Green Eagles", points: 2450, wins: 28, badge: "🥇", change: "+2", trend: "up", winRate: "93%" },
-    {
-      rank: 2,
-      team: "Thunder Wolves",
-      points: 2380,
-      wins: 26,
-      badge: "🥈",
-      change: "0",
-      trend: "same",
-      winRate: "87%",
-    },
-    {
-      rank: 3,
-      team: "Lightning Bolts",
-      points: 2290,
-      wins: 24,
-      badge: "🥉",
-      change: "+1",
-      trend: "up",
-      winRate: "82%",
-    },
-    { rank: 4, team: "Fire Dragons", points: 2180, wins: 22, badge: "🏆", change: "-1", trend: "down", winRate: "79%" },
-    { rank: 5, team: "Storm Hawks", points: 2050, wins: 20, badge: "⭐", change: "+3", trend: "up", winRate: "74%" },
-  ]
-
-  const stats = [
-    { label: "Active Teams", value: "48", icon: <Users className="w-8 h-8" />, color: "text-blue-600" },
-    { label: "Games Played", value: "234", icon: <Play className="w-8 h-8" />, color: "text-green-600" },
-    { label: "Total Points", value: "12.5K", icon: <Trophy className="w-8 h-8" />, color: "text-yellow-600" },
-    { label: "Championships", value: "6", icon: <Award className="w-8 h-8" />, color: "text-purple-600" },
   ]
 
   return (
@@ -521,6 +479,7 @@ export default function IntramuralLeaderboard() {
               size="xl"
               className="bg-white text-green-700 hover:bg-green-100 shadow-xl shadow-green-900/20"
               icon={<UserPlus className="w-5 h-5" />}
+              onClick={() => router.push('/user/signup')}
             >
               Sign Up Now
             </Button>

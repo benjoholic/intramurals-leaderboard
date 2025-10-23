@@ -15,8 +15,7 @@ import {
   Server, 
   Code2,
   Cctv,
-  CpuIcon as Cpu2,
-  Cpu as Cpu3
+  CpuIcon as Cpu2
 } from 'lucide-react';
 
 const icons = [
@@ -36,7 +35,7 @@ const icons = [
 ];
 
 const Marquee = () => {
-  const MarqueeRow = ({ reverse = false, offset = 0 }) => (
+  const MarqueeRow = ({ reverse = false }) => (
     <motion.div
       className="flex whitespace-nowrap py-8"
       initial={{ x: reverse ? '0%' : '-50%' }}
