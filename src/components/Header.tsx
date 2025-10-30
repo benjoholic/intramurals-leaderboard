@@ -12,7 +12,8 @@ function Header() {
     { name: "Home", href: "#hero" },
     { name: "Leaderboard", href: "#leaderboard" },
     { name: "Stats", href: "#stats" },
-    { name: "Events", href: "#events" },
+    { name: "Events", href: "/events" },
+    { name: "Developers", href: "/developers" },
     { name: "Contact", href: "#contact" }
   ]
 
@@ -38,9 +39,9 @@ function Header() {
                   </div>
                   <div className="flex flex-col">
                     <span className="text-2xl font-bold text-white bg-gradient-to-r from-emerald-200 to-emerald-300 bg-clip-text text-transparent">
-                      INTRAM
+                      MinSu
                     </span>
-                    <span className="text-sm text-gray-400">Intramural Tracker</span>
+                    <span className="text-sm text-gray-400">INTRATRACK</span>
                   </div>
                 </Link>
               </div>
@@ -54,7 +55,6 @@ function Header() {
                     href={item.href}
                     className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:text-emerald-200 transition-all duration-300 relative group"
                   >
-                    <span className="absolute -inset-0.5 bg-gradient-to-r from-emerald-400/20 to-emerald-300/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
                     <span className="relative z-10">
                       <div className="relative">
                         <span className="relative z-10">{item.name}</span>
