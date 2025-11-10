@@ -14,7 +14,6 @@ function Header() {
     { name: "Stats", href: "#stats" },
     { name: "Events", href: "/events" },
     { name: "Developers", href: "/developers" },
-    { name: "Contact", href: "#contact" }
   ]
 
   return (

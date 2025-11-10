@@ -59,24 +59,24 @@ function FloatingPaths({ position }: { position: number }) {
 export default function DevelopersPage() {
   const developers = [
     {
-      name: "John Doe",
+      name: "Benj Francis Ligeralde",
       role: "Lead Developer",
       description: "Full-stack developer specializing in React and Next.js",
-      image: "/Logos/Minsu.png",
+      image: "/Devs/Minsu.png",
       skills: ["React", "Next.js", "Node.js", "TypeScript"],
     },
     {
-      name: "Jane Smith",
+      name: "Kenneth Ibabao",
       role: "Frontend Developer",
       description: "UI/UX enthusiast with expertise in modern web technologies",
-      image: "/Logos/Minsu.png",
+      image: "/Devs/Kenneth.jpg",
       skills: ["React", "TailwindCSS", "Figma", "Animation"],
     },
     {
-      name: "Mike Johnson",
+      name: "Jay Em Fabro",
       role: "Backend Developer",
       description: "Database architect and API specialist",
-      image: "/Logos/Minsu.png",
+      image: "/Devs/Jayem.jpg",
       skills: ["Node.js", "PostgreSQL", "API Design", "AWS"],
     },
   ];
