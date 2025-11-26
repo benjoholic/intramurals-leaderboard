@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -20,116 +20,62 @@ export default function EventsPage() {
     "Track & Field",
   ];
 
-  const matches = [
-    {
-      id: 1,
-      sport: "Basketball",
-      team1: {
-        name: "Engineering Warriors",
-        logo: "/Logos/Minsu.png",
-        score: 0,
-      },
-      team2: {
-        name: "Business Titans",
-        logo: "/Logos/Minsu.png",
-        score: 0,
-      },
-      date: "Nov 5, 2025",
-      time: "2:00 PM",
-      venue: "Main Court",
-      status: "upcoming",
-    },
-    {
-      id: 2,
-      sport: "Basketball",
-      team1: {
-        name: "IT Hackers",
-        logo: "/Logos/Minsu.png",
-        score: 78,
-      },
-      team2: {
-        name: "Education Eagles",
-        logo: "/Logos/Minsu.png",
-        score: 72,
-      },
-      date: "Oct 28, 2025",
-      time: "3:00 PM",
-      venue: "Main Court",
-      status: "completed",
-    },
-    {
-      id: 3,
-      sport: "Volleyball",
-      team1: {
-        name: "Nursing Ninjas",
-        logo: "/Logos/Minsu.png",
-        score: 0,
-      },
-      team2: {
-        name: "Arts Avengers",
-        logo: "/Logos/Minsu.png",
-        score: 0,
-      },
-      date: "Nov 6, 2025",
-      time: "10:00 AM",
-      venue: "Volleyball Court",
-      status: "upcoming",
-    },
-    {
-      id: 4,
-      sport: "Volleyball",
-      team1: {
-        name: "Science Squad",
-        logo: "/Logos/Minsu.png",
-        score: 3,
-      },
-      team2: {
-        name: "Law Legends",
-        logo: "/Logos/Minsu.png",
-        score: 1,
-      },
-      date: "Oct 30, 2025",
-      time: "4:00 PM",
-      venue: "Volleyball Court",
-      status: "completed",
-    },
-    {
-      id: 5,
-      sport: "Badminton",
-      team1: {
-        name: "Engineering Warriors",
-        logo: "/Logos/Minsu.png",
-        score: 0,
-      },
-      team2: {
-        name: "IT Hackers",
-        logo: "/Logos/Minsu.png",
-        score: 0,
-      },
-      date: "Nov 7, 2025",
-      time: "1:00 PM",
-      venue: "Gym Hall",
-      status: "upcoming",
-    },
-    {
-      id: 6,
-      sport: "Chess",
-      team1: {
-        name: "Business Titans",
-        logo: "/Logos/Minsu.png",
-        score: 5,
-      },
-      team2: {
-        name: "Education Eagles",
-        logo: "/Logos/Minsu.png",
-        score: 3,
-      },
-      date: "Oct 29, 2025",
-      time: "9:00 AM",
-      venue: "Chess Room",
-      status: "completed",
-    },
-  ];
+  const [matches, setMatches] = useState<any[]>([])
+  const [isLoadingMatches, setIsLoadingMatches] = useState(true)
+  const [showDetails, setShowDetails] = useState(false)
+  const [selectedMatch, setSelectedMatch] = useState<any | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    async function load() {
+      try {
+        const [mRes, eRes, tRes] = await Promise.all([fetch('/api/matches'), fetch('/api/events'), fetch('/api/teams')])
+        const [mJson, eJson, tJson] = await Promise.all([mRes.ok ? mRes.json() : [], eRes.ok ? eRes.json() : [], tRes.ok ? tRes.json() : []])
+
+        const eventsMap = new Map((Array.isArray(eJson) ? eJson : []).map((ev: any) => [String(ev.id), ev]))
+        const teamsMap = new Map((Array.isArray(tJson) ? tJson : []).map((t: any) => [String(t.id), t]))
+
+        const mapped = (Array.isArray(mJson) ? mJson : []).map((m: any) => {
+          const ev = eventsMap.get(String(m.event_id))
+          const teamA = teamsMap.get(String(m.team_a_id))
+          const teamB = teamsMap.get(String(m.team_b_id))
+          const d = m.time ? new Date(m.time) : null
+          const date = d ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''
+          const time = d ? d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : ''
+          const status = m.status ?? ((typeof m.score_a === 'number' || typeof m.score_b === 'number') || (d ? d < new Date() : false) ? 'completed' : 'upcoming')
+          return {
+            id: m.id,
+            sport: ev?.event_type ?? ev?.name ?? 'Event',
+            // prefer explicit team.logo if available; otherwise try to load an admin-team image path
+            team1: {
+              id: teamA?.id ?? m.team_a_id,
+              name: teamA?.name ?? (m.team_a_name ?? 'Team A'),
+              logo: teamA?.logo ?? teamA?.logo_url ?? teamA?.image_url ?? teamA?.avatar_url ?? null,
+              score: typeof m.score_a === 'number' ? m.score_a : 0,
+            },
+            team2: {
+              id: teamB?.id ?? m.team_b_id,
+              name: teamB?.name ?? (m.team_b_name ?? 'Team B'),
+              logo: teamB?.logo ?? teamB?.logo_url ?? teamB?.image_url ?? teamB?.avatar_url ?? null,
+              score: typeof m.score_b === 'number' ? m.score_b : 0,
+            },
+            date,
+            time,
+            venue: m.location ?? ev?.location ?? '',
+            status,
+          }
+        })
+
+        if (mounted) setMatches(mapped)
+      } catch (err) {
+        console.error('Failed loading matches for landing page', err)
+      } finally {
+        if (mounted) setIsLoadingMatches(false)
+      }
+    }
+    load()
+    return () => { mounted = false }
+  }, [])
 
   const filteredMatches =
     selectedSport === "All"
@@ -255,8 +201,20 @@ export default function EventsPage() {
                     {/* Team 1 */}
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3 flex-1">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-r from-green-100 to-green-200 flex items-center justify-center border-2 border-green-300">
-                          <Users className="w-6 h-6 text-green-700" />
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-r from-green-100 to-green-200 flex items-center justify-center border-2 border-green-300 overflow-hidden">
+                          {match.team1.logo ? (
+                            <>
+                              {/* try to show provided logo or admin-team image path */}
+                              {/* plain <img> used to avoid Next.js image domain config for local/dev paths */}
+                              <img
+                                src={match.team1.logo}
+                                alt={`${match.team1.name} logo`}
+                                className="w-full h-full object-cover"
+                              />
+                            </>
+                          ) : (
+                            <Users className="w-6 h-6 text-green-700" />
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-gray-900 truncate">
@@ -279,8 +237,18 @@ export default function EventsPage() {
                     {/* Team 2 */}
                     <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center gap-3 flex-1">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 flex items-center justify-center border-2 border-blue-300">
-                          <Users className="w-6 h-6 text-blue-700" />
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 flex items-center justify-center border-2 border-blue-300 overflow-hidden">
+                          {match.team2.logo ? (
+                            <>
+                              <img
+                                src={match.team2.logo}
+                                alt={`${match.team2.name} logo`}
+                                className="w-full h-full object-cover"
+                              />
+                            </>
+                          ) : (
+                            <Users className="w-6 h-6 text-blue-700" />
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-gray-900 truncate">
@@ -312,7 +280,7 @@ export default function EventsPage() {
 
                   {/* Card Footer */}
                   <div className="px-6 pb-6">
-                    <button className="w-full py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-green-500/30 transition-all duration-300 group-hover:scale-[1.02]">
+                    <button onClick={() => { setSelectedMatch(match); setShowDetails(true); }} className="w-full py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-green-500/30 transition-all duration-300 group-hover:scale-[1.02]">
                       View Details
                     </button>
                   </div>
@@ -340,6 +308,61 @@ export default function EventsPage() {
           )}
         </div>
       </div>
+      {/* Match Details Modal (landing) */}
+      {showDetails && selectedMatch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-2xl bg-white rounded-2xl p-6 shadow-xl relative overflow-hidden">
+            <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-[140%] bg-black/90 rotate-[22deg] origin-center z-0" />
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-xl font-bold">{selectedMatch.sport ?? 'Match Details'}</h3>
+                <p className="text-sm text-gray-500">Match ID: {selectedMatch.id}</p>
+              </div>
+              <div>
+                <button onClick={() => setShowDetails(false)} className="text-sm text-gray-500 hover:text-gray-700">Close</button>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-between gap-6">
+              {/* Team A */}
+              <div className="flex-1 flex flex-col items-center pr-6 relative z-20">
+                {selectedMatch.team1?.logo ? (
+                  <div className="w-28 h-28 rounded-full overflow-hidden"><img src={selectedMatch.team1.logo} alt={selectedMatch.team1.name} className="w-28 h-28 object-cover" /></div>
+                ) : (
+                  <div className="w-28 h-28 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-700 font-bold text-xl">{(selectedMatch.team1?.name||'').split(' ').map((s:any)=>s[0]).slice(0,2).join('').toUpperCase()}</div>
+                )}
+                <p className="mt-3 text-lg font-semibold text-gray-900">{selectedMatch.team1?.name}</p>
+                <p className="mt-1 text-3xl font-extrabold text-gray-900">{selectedMatch.team1?.score ?? '0'}</p>
+              </div>
+
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-7xl font-extrabold text-gray-900">VS</div>
+              </div>
+
+              {/* Team B */}
+              <div className="flex-1 flex flex-col items-center pl-6 relative z-20">
+                {selectedMatch.team2?.logo ? (
+                  <div className="w-28 h-28 rounded-full overflow-hidden"><img src={selectedMatch.team2.logo} alt={selectedMatch.team2.name} className="w-28 h-28 object-cover" /></div>
+                ) : (
+                  <div className="w-28 h-28 rounded-full bg-blue-50 flex items-center justify-center text-blue-700 font-bold text-xl">{(selectedMatch.team2?.name||'').split(' ').map((s:any)=>s[0]).slice(0,2).join('').toUpperCase()}</div>
+                )}
+                <p className="mt-3 text-lg font-semibold text-gray-900">{selectedMatch.team2?.name}</p>
+                <p className="mt-1 text-3xl font-extrabold text-gray-900">{selectedMatch.team2?.score ?? '0'}</p>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-3 text-sm text-gray-600">
+              <div className="flex items-center gap-3"><Calendar className="w-4 h-4 text-green-600" /><span>{selectedMatch.date}</span></div>
+              <div className="flex items-center gap-3"><Clock className="w-4 h-4 text-green-600" /><span>{selectedMatch.time}</span></div>
+              <div className="flex items-center gap-3"><MapPin className="w-4 h-4 text-green-600" /><span>{selectedMatch.venue}</span></div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button onClick={() => setShowDetails(false)} className="px-4 py-2 rounded-lg border">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
       <Footer />
     </>
   );
