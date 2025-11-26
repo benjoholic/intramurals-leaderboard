@@ -49,55 +49,36 @@ export default function EventsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [showSignOutDialog, setShowSignOutDialog] = useState(false)
   const [showSignOutLoading, setShowSignOutLoading] = useState(false)
-  type EventItem = { id: string; event_type?: string; time?: string; date?: string; location?: string; matchup?: string; points?: number | null; team_a_id?: number | string | null; team_b_id?: number | string | null }
+  type EventItem = { id: string; event_type?: string; time?: string; date?: string; location?: string; points?: number | null }
   const [events, setEvents] = useState<EventItem[]>([
-    { id: "e1", event_type: "Basketball", time: "2025-12-01T18:00", location: "Main Court", matchup: "Eagles vs Tigers" },
-    { id: "e2", event_type: "Volleyball", time: "2025-12-10T15:00", location: "Gym 2", matchup: "Blue Team vs Red Team" },
+    { id: "e1", event_type: "Basketball", time: "2025-12-01T18:00", location: "Main Court" },
+    { id: "e2", event_type: "Volleyball", time: "2025-12-10T15:00", location: "Gym 2" },
   ])
   const [showAddEvent, setShowAddEvent] = useState(false)
   const [newName, setNewName] = useState("Basketball")
   const [newTime, setNewTime] = useState("")
   const [newLocation, setNewLocation] = useState("")
-  const [newMatchup, setNewMatchup] = useState("")
   const [newPoints, setNewPoints] = useState<number | "">("")
-  const [teamsList, setTeamsList] = useState<{ id: string; name: string }[]>([])
-  const [newTeamA, setNewTeamA] = useState<string | null>(null)
-  const [newTeamB, setNewTeamB] = useState<string | null>(null)
   const [viewEvent, setViewEvent] = useState<EventItem | null>(null)
   const [editEvent, setEditEvent] = useState<EventItem | null>(null)
   const [editName, setEditName] = useState("")
   const [editTime, setEditTime] = useState("")
   const [editLocation, setEditLocation] = useState("")
-  const [editMatchup, setEditMatchup] = useState("")
   const [editPoints, setEditPoints] = useState<number | "">("")
-  const [editTeamA, setEditTeamA] = useState<string | null>(null)
-  const [editTeamB, setEditTeamB] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
       try {
         const res = await fetch('/api/events')
-        if (res.ok) {
+          if (res.ok) {
           const data = await res.json()
-          if (Array.isArray(data)) setEvents(data.map((d: any) => ({ id: String(d.id), event_type: d.event_type, time: d.time, location: d.location, matchup: d.matchup, points: d.points ?? d.points_per_win ?? null })))
+          if (Array.isArray(data)) setEvents(data.map((d: any) => ({ id: String(d.id), event_type: d.event_type, time: d.time, location: d.location, points: d.points ?? d.points_per_win ?? null })))
         }
       } catch (err) {
         console.error('Failed to load events', err)
       }
     }
     load()
-    // load teams for matchup selects
-    ;(async function loadTeams(){
-      try{
-        const r = await fetch('/api/teams')
-        if(r.ok){
-          const ts = await r.json()
-          if(Array.isArray(ts)) setTeamsList(ts.map((t: any) => ({ id: String(t.id), name: t.name })))
-        }
-      }catch(e){
-        console.error('Failed to load teams for event matchup', e)
-      }
-    })()
   }, [])
 
   async function addEvent(e: React.FormEvent) {
@@ -111,28 +92,24 @@ export default function EventsPage() {
           event_type: newName,
           time: newTime,
           location: newLocation,
-          matchup: newMatchup,
           points: typeof newPoints === 'number' ? newPoints : null,
-          team_a_id: newTeamA || null,
-          team_b_id: newTeamB || null,
         })
       })
         if (!res.ok) {
         console.error('Failed to create event', await res.text())
-        setEvents((s) => [{ id: String(Date.now()), event_type: newName, time: newTime, location: newLocation, matchup: newMatchup }, ...s])
+        setEvents((s) => [{ id: String(Date.now()), event_type: newName, time: newTime, location: newLocation }, ...s])
       } else {
         const created = await res.json()
-        setEvents((s) => [{ id: String(created.id), event_type: created.event_type ?? '', time: created.time, location: created.location, matchup: created.matchup, points: created.points ?? null }, ...s])
+        setEvents((s) => [{ id: String(created.id), event_type: created.event_type ?? '', time: created.time, location: created.location, points: created.points ?? null }, ...s])
       }
     } catch (err) {
       console.error('Create event error', err)
-      setEvents((s) => [{ id: String(Date.now()), event_type: newName, time: newTime, location: newLocation, matchup: newMatchup, points: typeof newPoints === 'number' ? newPoints : null }, ...s])
+      setEvents((s) => [{ id: String(Date.now()), event_type: newName, time: newTime, location: newLocation, points: typeof newPoints === 'number' ? newPoints : null }, ...s])
     }
 
     setNewName("Basketball")
     setNewTime("")
     setNewLocation("")
-    setNewMatchup("")
     setNewPoints("")
     setShowAddEvent(false)
   }
@@ -308,42 +285,48 @@ export default function EventsPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {events.map((ev) => (
-                    <div key={ev.id} className="bg-white rounded-2xl p-6 shadow relative">
-                      <div className="flex items-center justify-between">
-                        <div>
-                            <h3 className="text-lg font-semibold">{ev.event_type}</h3>
-                            {typeof ev.points === 'number' ? <div className="text-xs text-gray-500">Points: {ev.points}</div> : null}
-                          {ev.matchup ? <p className="text-sm text-gray-700">{ev.matchup}</p> : null}
-                          <p className="text-sm text-gray-500">{ev.location}</p>
+                    <div key={ev.id} className="bg-gradient-to-br from-white to-green-50 rounded-2xl p-6 pb-6 shadow-lg hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-200 relative overflow-hidden border border-gray-100">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-4">
+                          <div className="flex flex-col">
+                            <h3 className="text-lg font-semibold text-gray-900">{ev.event_type}</h3>
+                            <p className="text-sm text-gray-500 mt-1">{ev.location}</p>
+                            {typeof ev.points === 'number' ? (
+                              <div className="mt-3 inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-semibold">
+                                <Trophy className="w-3 h-3" />
+                                <span>Points: {ev.points}</span>
+                              </div>
+                            ) : null}
+                          </div>
                         </div>
                         <div className="text-sm text-gray-600">{ev.time ?? ev.date}</div>
                       </div>
 
-                      <div className="absolute bottom-4 right-4 flex gap-2 z-10">
-                        <button className="inline-flex items-center rounded-md border px-3 py-1 text-sm bg-white/90" onClick={() => setViewEvent(ev)}>View</button>
-                        <button className="inline-flex items-center rounded-md border px-3 py-1 text-sm bg-white/90" onClick={() => {
-                          setEditEvent(ev)
-                          setEditName(ev.event_type ?? "")
-                          setEditTime(ev.time ?? ev.date ?? "")
-                          setEditLocation(ev.location ?? "")
-                          setEditMatchup(ev.matchup ?? "")
-                          setEditPoints(ev.points ?? "")
-                          setEditTeamA(ev.team_a_id ? String(ev.team_a_id) : null)
-                          setEditTeamB(ev.team_b_id ? String(ev.team_b_id) : null)
-                        }}>Edit</button>
-                        <button className="inline-flex items-center rounded-md border px-3 py-1 text-sm text-red-600" onClick={async () => {
-                          const ok = window.confirm(`Delete event \"${ev.event_type}\"?`)
-                          if (!ok) return
-                          try {
-                            const res = await fetch('/api/events', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ev.id }) })
-                            const j = await res.json()
-                            if (!res.ok) throw new Error(j?.error || 'Failed to delete')
-                            setEvents((s) => s.filter(e => e.id !== ev.id))
-                          } catch (err) {
-                            console.error(err)
-                            alert('Failed to delete event')
-                          }
-                        }}>Delete</button>
+                      <div className="mt-4 flex items-center justify-end gap-3">
+                        <div className="flex-1 text-sm text-gray-500">&nbsp;</div>
+                        <div className="flex gap-2">
+                          <button className="inline-flex items-center rounded-full border px-3 py-2 text-sm bg-white/95 hover:bg-white" onClick={() => setViewEvent(ev)}>View</button>
+                          <button className="inline-flex items-center rounded-full border px-3 py-2 text-sm bg-white/95 hover:bg-white" onClick={() => {
+                            setEditEvent(ev)
+                            setEditName(ev.event_type ?? "")
+                            setEditTime(ev.time ?? ev.date ?? "")
+                            setEditLocation(ev.location ?? "")
+                            setEditPoints(ev.points ?? "")
+                          }}>Edit</button>
+                          <button className="inline-flex items-center rounded-full border px-3 py-2 text-sm text-red-600 bg-white/95 hover:bg-white" onClick={async () => {
+                            const ok = window.confirm(`Delete event \"${ev.event_type}\"?`)
+                            if (!ok) return
+                            try {
+                              const res = await fetch('/api/events', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ev.id }) })
+                              const j = await res.json()
+                              if (!res.ok) throw new Error(j?.error || 'Failed to delete')
+                              setEvents((s) => s.filter(e => e.id !== ev.id))
+                            } catch (err) {
+                              console.error(err)
+                              alert('Failed to delete event')
+                            }
+                          }}>Delete</button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -374,33 +357,8 @@ export default function EventsPage() {
                         <input value={newLocation} onChange={(e) => setNewLocation(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
                       </div>
                       <div>
-                        <label className="block text-sm text-gray-700">Matchup</label>
-                        <div className="mt-1 grid grid-cols-2 gap-2">
-                          <select value={newTeamA ?? ""} onChange={(e) => {
-                            const id = e.target.value || null
-                            setNewTeamA(id)
-                            const a = teamsList.find(t => t.id === id)
-                            const b = teamsList.find(t => t.id === newTeamB)
-                            setNewMatchup(a && b ? `${a.name} vs ${b.name}` : "")
-                          }} className="block w-full rounded-lg border px-3 py-2">
-                            <option value="">Select Team A</option>
-                            {teamsList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                          </select>
-                          <select value={newTeamB ?? ""} onChange={(e) => {
-                            const id = e.target.value || null
-                            setNewTeamB(id)
-                            const a = teamsList.find(t => t.id === newTeamA)
-                            const b = teamsList.find(t => t.id === id)
-                            setNewMatchup(a && b ? `${a.name} vs ${b.name}` : "")
-                          }} className="block w-full rounded-lg border px-3 py-2">
-                            <option value="">Select Team B</option>
-                            {teamsList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                          </select>
-                          </div>
-                        <div>
-                          <label className="block text-sm text-gray-700">Points (per win)</label>
-                          <input type="number" value={newPoints as any} onChange={(e) => setNewPoints(e.target.value === '' ? '' : Number(e.target.value))} className="mt-1 block w-full rounded-lg border px-3 py-2" />
-                        </div>
+                        <label className="block text-sm text-gray-700">Points (per win)</label>
+                        <input type="number" value={newPoints as any} onChange={(e) => setNewPoints(e.target.value === '' ? '' : Number(e.target.value))} className="mt-1 block w-full rounded-lg border px-3 py-2" />
                       </div>
                       <div className="flex justify-end gap-3">
                         <button type="button" onClick={() => setShowAddEvent(false)} className="px-4 py-2 rounded-lg border">Cancel</button>
@@ -419,24 +377,21 @@ export default function EventsPage() {
                         <div className="flex items-start justify-between">
                           <div>
                             <h3 className="text-2xl font-extrabold">{(viewEvent as any).event_type}</h3>
-                            {viewEvent.matchup ? <p className="text-sm text-gray-700 mt-2">{viewEvent.matchup}</p> : null}
+                            {/* matchup hidden in view modal */}
                             <p className="text-sm text-gray-500 mt-2">{viewEvent.location}</p>
                           </div>
                           <div className="text-sm text-gray-600">{viewEvent.time ?? viewEvent.date}</div>
                         </div>
                       </div>
                       <div className="p-6 flex justify-end gap-3">
-                        <button className="rounded-md border px-3 py-1" onClick={() => {
+                          <button className="rounded-md border px-3 py-1" onClick={() => {
                           // open edit modal prefilled
                           setEditEvent(viewEvent)
                           setViewEvent(null)
                           setEditName((viewEvent as any).event_type ?? "")
                           setEditTime(viewEvent.time ?? viewEvent.date ?? "")
                           setEditLocation(viewEvent.location ?? "")
-                          setEditMatchup(viewEvent.matchup ?? "")
                           setEditPoints((viewEvent as any).points ?? "")
-                          setEditTeamA((viewEvent as any).team_a_id ? String((viewEvent as any).team_a_id) : null)
-                          setEditTeamB((viewEvent as any).team_b_id ? String((viewEvent as any).team_b_id) : null)
                         }}>Edit</button>
                         <button className="rounded-md px-3 py-1 bg-gray-100" onClick={() => setViewEvent(null)}>Close</button>
                       </div>
@@ -466,29 +421,17 @@ export default function EventsPage() {
                           <span className="text-sm">Location</span>
                           <input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
                         </label>
-                        <label className="block">
-                          <span className="text-sm">Matchup</span>
-                          <div className="mt-1 grid grid-cols-2 gap-2">
-                            <select value={editTeamA ?? ""} onChange={(e) => { const id = e.target.value || null; setEditTeamA(id); const a = teamsList.find(t => t.id === id); const b = teamsList.find(t => t.id === editTeamB); setEditMatchup(a && b ? `${a.name} vs ${b.name}` : ''); }} className="block w-full rounded-lg border px-3 py-2">
-                              <option value="">Select Team A</option>
-                              {teamsList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                            </select>
-                            <select value={editTeamB ?? ""} onChange={(e) => { const id = e.target.value || null; setEditTeamB(id); const a = teamsList.find(t => t.id === editTeamA); const b = teamsList.find(t => t.id === id); setEditMatchup(a && b ? `${a.name} vs ${b.name}` : ''); }} className="block w-full rounded-lg border px-3 py-2">
-                              <option value="">Select Team B</option>
-                              {teamsList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                            </select>
-                          </div>
-                        </label>
+                        {/* matchup removed from edit form */}
                       </div>
                       <div className="mt-6 flex justify-end gap-2">
                         <button className="rounded-md border px-3 py-1" onClick={() => setEditEvent(null)}>Cancel</button>
                         <button className="rounded bg-primary px-3 py-1 text-white" onClick={async () => {
                           try {
-                            const res = await fetch('/api/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editEvent.id, event_type: editName, time: editTime, location: editLocation, matchup: editMatchup, team_a_id: editTeamA, team_b_id: editTeamB }) })
+                            const res = await fetch('/api/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editEvent.id, event_type: editName, time: editTime, location: editLocation }) })
                             const j = await res.json()
                             if (!res.ok) throw new Error(j?.error || 'Failed to update')
-                            // update local state
-                            setEvents((s) => s.map(ev => ev.id === editEvent.id ? { id: String(j.id ?? editEvent.id), event_type: j.event_type ?? editName, time: j.time ?? editTime, location: j.location ?? editLocation, matchup: j.matchup ?? editMatchup } : ev))
+                            // update local state (keep points if returned)
+                            setEvents((s) => s.map(ev => ev.id === editEvent.id ? { id: String(j.id ?? editEvent.id), event_type: j.event_type ?? editName, time: j.time ?? editTime, location: j.location ?? editLocation, points: j.points ?? editPoints } : ev))
                             setEditEvent(null)
                           } catch (err) {
                             console.error(err)
