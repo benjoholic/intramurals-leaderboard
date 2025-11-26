@@ -96,7 +96,14 @@ export default function EventsPage() {
       const res = await fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName, time: newTime, location: newLocation, matchup: newMatchup })
+        body: JSON.stringify({
+          name: newName,
+          time: newTime,
+          location: newLocation,
+          matchup: newMatchup,
+          team_a_id: newTeamA || null,
+          team_b_id: newTeamB || null,
+        })
       })
       if (!res.ok) {
         console.error('Failed to create event', await res.text())

@@ -60,13 +60,41 @@ export async function POST(req: Request) {
     const name = String(body.name || "").trim()
     const time = String(body.time || "").trim()
     const location = body.location ? String(body.location) : null
-    const matchup = body.matchup ? String(body.matchup) : null
+    let matchup = body.matchup ? String(body.matchup) : null
+    const team_a_id = body.team_a_id ?? null
+    const team_b_id = body.team_b_id ?? null
 
     if (!name || !time) {
       return NextResponse.json({ error: "Name and time are required" }, { status: 400 })
     }
 
-    const { data, error } = await supabase.from("events").insert([{ name, time, location, matchup }]).select().single()
+    // If matchup is missing but team ids are provided, try to look up team names
+    try {
+      if ((!matchup || matchup === "") && (team_a_id || team_b_id)) {
+        const ids = [team_a_id, team_b_id].filter(Boolean)
+        if (ids.length > 0) {
+          const r = await supabase.from('teams').select('id, name').in('id', ids as any)
+          if (!r.error && Array.isArray(r.data)) {
+            const map = new Map<string, string>()
+            r.data.forEach((t: any) => map.set(String(t.id), String(t.name)))
+            const aName = team_a_id ? map.get(String(team_a_id)) : null
+            const bName = team_b_id ? map.get(String(team_b_id)) : null
+            if (aName && bName) matchup = `${aName} vs ${bName}`
+            else if (aName && !bName) matchup = aName
+            else if (!aName && bName) matchup = bName
+          }
+        }
+      }
+    } catch (errLookup) {
+      console.error('Failed to lookup team names for matchup:', errLookup)
+    }
+
+    const insertPayload: any = { name, time, location }
+    if (matchup) insertPayload.matchup = matchup
+    if (team_a_id) insertPayload.team_a_id = team_a_id
+    if (team_b_id) insertPayload.team_b_id = team_b_id
+
+    const { data, error } = await supabase.from("events").insert([insertPayload]).select().single()
     if (error) {
       console.error("Supabase error (events POST):", error)
       return NextResponse.json({ error: error.message, details: error }, { status: 500 })
