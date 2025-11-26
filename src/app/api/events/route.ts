@@ -61,8 +61,9 @@ export async function POST(req: Request) {
     const time = String(body.time || "").trim()
     const location = body.location ? String(body.location) : null
     let matchup = body.matchup ? String(body.matchup) : null
-    const team_a_id = body.team_a_id ?? null
-    const team_b_id = body.team_b_id ?? null
+    // Coerce team ids to numbers if possible (frontend should send numbers)
+    const team_a_id = body.team_a_id != null && body.team_a_id !== '' ? Number(body.team_a_id) : null
+    const team_b_id = body.team_b_id != null && body.team_b_id !== '' ? Number(body.team_b_id) : null
 
     if (!name || !time) {
       return NextResponse.json({ error: "Name and time are required" }, { status: 400 })
@@ -89,10 +90,24 @@ export async function POST(req: Request) {
       console.error('Failed to lookup team names for matchup:', errLookup)
     }
 
+    // Also populate legacy fields for compatibility: title (from name) and date (from time)
+    let date: string | null = null
+    try {
+      if (time) {
+        // derive YYYY-MM-DD
+        date = new Date(time).toISOString().slice(0, 10)
+      }
+    } catch (e) {
+      date = null
+    }
+
     const insertPayload: any = { name, time, location }
+    // legacy fields
+    insertPayload.title = body.title ?? name ?? null
+    if (date) insertPayload.date = date
     if (matchup) insertPayload.matchup = matchup
-    if (team_a_id) insertPayload.team_a_id = team_a_id
-    if (team_b_id) insertPayload.team_b_id = team_b_id
+    if (team_a_id != null) insertPayload.team_a_id = team_a_id
+    if (team_b_id != null) insertPayload.team_b_id = team_b_id
 
     // Try inserting; if we get a UUID parsing error (apps may send numeric team IDs
     // while the DB column is uuid), retry without team id fields so the event still creates.
