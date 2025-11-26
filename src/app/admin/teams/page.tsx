@@ -50,11 +50,8 @@ export default function TeamsPage() {
   const [showSignOutDialog, setShowSignOutDialog] = useState(false)
   const [showSignOutLoading, setShowSignOutLoading] = useState(false)
   type Team = { id: string; name: string; color?: string; image?: string; department?: string; event?: string }
-  const [teams, setTeams] = useState<Team[]>([
-    { id: "1", name: "Eagles", color: "#16a34a" },
-    { id: "2", name: "Tigers", color: "#0ea5a4" },
-    { id: "3", name: "Blue Team", color: "#2563eb" },
-  ])
+  const [teams, setTeams] = useState<Team[]>([])
+  const [teamsLoading, setTeamsLoading] = useState(true)
 
   const [viewTeam, setViewTeam] = useState<Team | null>(null)
   const [editTeam, setEditTeam] = useState<Team | null>(null)
@@ -104,6 +101,8 @@ export default function TeamsPage() {
         }
       } catch (err) {
         console.error("Failed to load teams", err)
+      } finally {
+        setTeamsLoading(false)
       }
     }
     load()
@@ -296,7 +295,11 @@ export default function TeamsPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {teams.length === 0 ? (
+                {teamsLoading ? (
+                  <div className="col-span-full bg-white rounded-2xl p-8 shadow text-center">
+                    <p className="text-gray-500">Loading, please wait...</p>
+                  </div>
+                ) : teams.length === 0 ? (
                   <div className="col-span-full bg-white rounded-2xl p-8 shadow text-center">
                     <p className="text-gray-500">No teams yet. Click "Add Team" to create one.</p>
                   </div>
