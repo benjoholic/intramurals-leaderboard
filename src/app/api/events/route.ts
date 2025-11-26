@@ -94,11 +94,38 @@ export async function POST(req: Request) {
     if (team_a_id) insertPayload.team_a_id = team_a_id
     if (team_b_id) insertPayload.team_b_id = team_b_id
 
-    const { data, error } = await supabase.from("events").insert([insertPayload]).select().single()
-    if (error) {
-      console.error("Supabase error (events POST):", error)
-      return NextResponse.json({ error: error.message, details: error }, { status: 500 })
+    // Try inserting; if we get a UUID parsing error (apps may send numeric team IDs
+    // while the DB column is uuid), retry without team id fields so the event still creates.
+    let insertResult: any = null
+    try {
+      const r = await supabase.from("events").insert([insertPayload]).select().single()
+      insertResult = r
+    } catch (e) {
+      // fallthrough to error handling below
+      insertResult = e as any
     }
+
+    if (insertResult && insertResult.error) {
+      const err: any = insertResult.error
+      // If it's a UUID parse error (22P02) try again without team id fields
+      const isUuidParse = (err?.message || "").includes('invalid input syntax for type uuid') || err?.code === '22P02'
+      if (isUuidParse && (insertPayload.team_a_id || insertPayload.team_b_id)) {
+        console.warn('UUID parse error inserting team ids; retrying insert without team_a_id/team_b_id to preserve event creation')
+        delete insertPayload.team_a_id
+        delete insertPayload.team_b_id
+        const r2 = await supabase.from("events").insert([insertPayload]).select().single()
+        if (r2.error) {
+          console.error("Supabase error (events POST) retry without team ids:", r2.error)
+          return NextResponse.json({ error: r2.error.message, details: r2.error }, { status: 500 })
+        }
+        return NextResponse.json(r2.data, { status: 201 })
+      }
+
+      console.error("Supabase error (events POST):", err)
+      return NextResponse.json({ error: err.message, details: err }, { status: 500 })
+    }
+
+    const data = insertResult.data
     return NextResponse.json(data, { status: 201 })
   } catch (err: any) {
     console.error("Unexpected error (events POST):", err)
