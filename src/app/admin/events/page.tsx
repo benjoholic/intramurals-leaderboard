@@ -10,7 +10,8 @@ import {
   Trophy,
   Settings,
   BarChart3,
-  LogOut
+  LogOut,
+  Shuffle
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -48,7 +49,7 @@ export default function EventsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [showSignOutDialog, setShowSignOutDialog] = useState(false)
   const [showSignOutLoading, setShowSignOutLoading] = useState(false)
-  type EventItem = { id: string; event_type?: string; time?: string; date?: string; location?: string; matchup?: string; team_a_id?: number | string | null; team_b_id?: number | string | null }
+  type EventItem = { id: string; event_type?: string; time?: string; date?: string; location?: string; matchup?: string; points?: number | null; team_a_id?: number | string | null; team_b_id?: number | string | null }
   const [events, setEvents] = useState<EventItem[]>([
     { id: "e1", event_type: "Basketball", time: "2025-12-01T18:00", location: "Main Court", matchup: "Eagles vs Tigers" },
     { id: "e2", event_type: "Volleyball", time: "2025-12-10T15:00", location: "Gym 2", matchup: "Blue Team vs Red Team" },
@@ -58,6 +59,7 @@ export default function EventsPage() {
   const [newTime, setNewTime] = useState("")
   const [newLocation, setNewLocation] = useState("")
   const [newMatchup, setNewMatchup] = useState("")
+  const [newPoints, setNewPoints] = useState<number | "">("")
   const [teamsList, setTeamsList] = useState<{ id: string; name: string }[]>([])
   const [newTeamA, setNewTeamA] = useState<string | null>(null)
   const [newTeamB, setNewTeamB] = useState<string | null>(null)
@@ -67,6 +69,7 @@ export default function EventsPage() {
   const [editTime, setEditTime] = useState("")
   const [editLocation, setEditLocation] = useState("")
   const [editMatchup, setEditMatchup] = useState("")
+  const [editPoints, setEditPoints] = useState<number | "">("")
   const [editTeamA, setEditTeamA] = useState<string | null>(null)
   const [editTeamB, setEditTeamB] = useState<string | null>(null)
 
@@ -76,7 +79,7 @@ export default function EventsPage() {
         const res = await fetch('/api/events')
         if (res.ok) {
           const data = await res.json()
-          if (Array.isArray(data)) setEvents(data.map((d: any) => ({ id: String(d.id), event_type: d.event_type, time: d.time, location: d.location, matchup: d.matchup })))
+          if (Array.isArray(data)) setEvents(data.map((d: any) => ({ id: String(d.id), event_type: d.event_type, time: d.time, location: d.location, matchup: d.matchup, points: d.points ?? d.points_per_win ?? null })))
         }
       } catch (err) {
         console.error('Failed to load events', err)
@@ -109,6 +112,7 @@ export default function EventsPage() {
           time: newTime,
           location: newLocation,
           matchup: newMatchup,
+          points: typeof newPoints === 'number' ? newPoints : null,
           team_a_id: newTeamA || null,
           team_b_id: newTeamB || null,
         })
@@ -118,17 +122,18 @@ export default function EventsPage() {
         setEvents((s) => [{ id: String(Date.now()), event_type: newName, time: newTime, location: newLocation, matchup: newMatchup }, ...s])
       } else {
         const created = await res.json()
-        setEvents((s) => [{ id: String(created.id), event_type: created.event_type ?? '', time: created.time, location: created.location, matchup: created.matchup }, ...s])
+        setEvents((s) => [{ id: String(created.id), event_type: created.event_type ?? '', time: created.time, location: created.location, matchup: created.matchup, points: created.points ?? null }, ...s])
       }
     } catch (err) {
       console.error('Create event error', err)
-      setEvents((s) => [{ id: String(Date.now()), event_type: newName, time: newTime, location: newLocation, matchup: newMatchup }, ...s])
+      setEvents((s) => [{ id: String(Date.now()), event_type: newName, time: newTime, location: newLocation, matchup: newMatchup, points: typeof newPoints === 'number' ? newPoints : null }, ...s])
     }
 
     setNewName("Basketball")
     setNewTime("")
     setNewLocation("")
     setNewMatchup("")
+    setNewPoints("")
     setShowAddEvent(false)
   }
 
@@ -170,6 +175,7 @@ export default function EventsPage() {
     { title: "Dashboard", icon: Home, url: "/admin/dashboard", isActive: false },
     { title: "Teams", icon: Users, url: "/admin/teams", isActive: false },
     { title: "Events", icon: Calendar, url: "/admin/events", isActive: true },
+    { title: "Matches", icon: Shuffle, url: "/admin/matches", isActive: false },
     { title: "Standings", icon: Trophy, url: "/admin/standings", isActive: false },
     { title: "Reports", icon: BarChart3, url: "/admin/reports", isActive: false },
     { title: "Settings", icon: Settings, url: "/admin/settings", isActive: false },
@@ -305,7 +311,8 @@ export default function EventsPage() {
                     <div key={ev.id} className="bg-white rounded-2xl p-6 shadow relative">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="text-lg font-semibold">{ev.event_type}</h3>
+                            <h3 className="text-lg font-semibold">{ev.event_type}</h3>
+                            {typeof ev.points === 'number' ? <div className="text-xs text-gray-500">Points: {ev.points}</div> : null}
                           {ev.matchup ? <p className="text-sm text-gray-700">{ev.matchup}</p> : null}
                           <p className="text-sm text-gray-500">{ev.location}</p>
                         </div>
@@ -320,6 +327,7 @@ export default function EventsPage() {
                           setEditTime(ev.time ?? ev.date ?? "")
                           setEditLocation(ev.location ?? "")
                           setEditMatchup(ev.matchup ?? "")
+                          setEditPoints(ev.points ?? "")
                           setEditTeamA(ev.team_a_id ? String(ev.team_a_id) : null)
                           setEditTeamB(ev.team_b_id ? String(ev.team_b_id) : null)
                         }}>Edit</button>
@@ -388,6 +396,10 @@ export default function EventsPage() {
                             <option value="">Select Team B</option>
                             {teamsList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                           </select>
+                          </div>
+                        <div>
+                          <label className="block text-sm text-gray-700">Points (per win)</label>
+                          <input type="number" value={newPoints as any} onChange={(e) => setNewPoints(e.target.value === '' ? '' : Number(e.target.value))} className="mt-1 block w-full rounded-lg border px-3 py-2" />
                         </div>
                       </div>
                       <div className="flex justify-end gap-3">
@@ -422,6 +434,7 @@ export default function EventsPage() {
                           setEditTime(viewEvent.time ?? viewEvent.date ?? "")
                           setEditLocation(viewEvent.location ?? "")
                           setEditMatchup(viewEvent.matchup ?? "")
+                          setEditPoints((viewEvent as any).points ?? "")
                           setEditTeamA((viewEvent as any).team_a_id ? String((viewEvent as any).team_a_id) : null)
                           setEditTeamB((viewEvent as any).team_b_id ? String((viewEvent as any).team_b_id) : null)
                         }}>Edit</button>
@@ -440,6 +453,10 @@ export default function EventsPage() {
                         <label className="block">
                           <span className="text-sm">Event Type</span>
                           <input value={editName} onChange={(e) => setEditName(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                        </label>
+                        <label className="block">
+                          <span className="text-sm">Points (per win)</span>
+                          <input type="number" value={editPoints as any} onChange={(e) => setEditPoints(e.target.value === '' ? '' : Number(e.target.value))} className="mt-1 block w-full rounded-lg border px-3 py-2" />
                         </label>
                         <label className="block">
                           <span className="text-sm">Time</span>

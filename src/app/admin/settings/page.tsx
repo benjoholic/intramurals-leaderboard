@@ -10,7 +10,8 @@ import {
   Trophy,
   Settings,
   BarChart3,
-  LogOut
+  LogOut,
+  Shuffle
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -89,6 +90,7 @@ export default function SettingsPage() {
     { title: "Dashboard", icon: Home, url: "/admin/dashboard", isActive: false },
     { title: "Teams", icon: Users, url: "/admin/teams", isActive: false },
     { title: "Events", icon: Calendar, url: "/admin/events", isActive: false },
+    { title: "Matches", icon: Shuffle, url: "/admin/matches", isActive: false },
     { title: "Standings", icon: Trophy, url: "/admin/standings", isActive: false },
     { title: "Reports", icon: BarChart3, url: "/admin/reports", isActive: false },
     { title: "Settings", icon: Settings, url: "/admin/settings", isActive: true },

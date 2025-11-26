@@ -63,6 +63,7 @@ export async function POST(req: Request) {
       time?: string
       location?: string | null
       matchup?: string | null
+      points?: number | null
       team_a_id?: string | number | null
       team_b_id?: string | number | null
     }
@@ -119,6 +120,7 @@ export async function POST(req: Request) {
       matchup?: string | null
       team_a_id?: number | null
       team_b_id?: number | null
+      points?: number | null
     } = { time, location }
     // store the new column `event_type` only — do not write legacy `title` or `name`
     insertPayload.event_type = event_type
@@ -126,6 +128,7 @@ export async function POST(req: Request) {
     if (matchup) insertPayload.matchup = matchup
     if (team_a_id != null) insertPayload.team_a_id = team_a_id
     if (team_b_id != null) insertPayload.team_b_id = team_b_id
+    if (body.points != null) insertPayload.points = Number(body.points)
 
     // Try inserting; if we get a UUID parsing error (apps may send numeric team IDs
     // while the DB column is uuid), retry without team id fields so the event still creates.
@@ -175,6 +178,7 @@ export async function PATCH(req: Request) {
       time?: string
       location?: string | null
       matchup?: string | null
+      points?: number | null
       team_a_id?: string | number | null
       team_b_id?: string | number | null
     }
@@ -189,6 +193,7 @@ export async function PATCH(req: Request) {
       team_a_id?: number | null | string
       team_b_id?: number | null | string
       date?: string
+      points?: number | null
     } = {}
     // accept new `event_type` field, fall back to `name` for compatibility
     if (body.event_type) payload.event_type = body.event_type
@@ -196,6 +201,7 @@ export async function PATCH(req: Request) {
     if (body.time) payload.time = body.time
     if (body.location) payload.location = body.location
     if (body.matchup) payload.matchup = body.matchup
+    if (body.points != null) payload.points = Number(body.points)
 
     // coerce team ids when provided
     if (body.team_a_id != null && body.team_a_id !== '') {

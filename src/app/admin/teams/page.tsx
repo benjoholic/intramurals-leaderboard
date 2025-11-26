@@ -3,14 +3,15 @@
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
-import { 
+  import { 
   Home,
   Users,
   Calendar,
   Trophy,
   Settings,
   BarChart3,
-  LogOut
+  LogOut,
+  Shuffle
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -146,6 +147,7 @@ export default function TeamsPage() {
     { title: "Dashboard", icon: Home, url: "/admin/dashboard", isActive: false },
     { title: "Teams", icon: Users, url: "/admin/teams", isActive: true },
     { title: "Events", icon: Calendar, url: "/admin/events", isActive: false },
+    { title: "Matches", icon: Shuffle, url: "/admin/matches", isActive: false },
     { title: "Standings", icon: Trophy, url: "/admin/standings", isActive: false },
     { title: "Reports", icon: BarChart3, url: "/admin/reports", isActive: false },
     { title: "Settings", icon: Settings, url: "/admin/settings", isActive: false },
