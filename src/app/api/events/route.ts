@@ -18,11 +18,28 @@ export async function GET() {
 
   const supabase = res.supabase
   try {
-    const { data, error } = await supabase.from("events").select("*").order("date", { ascending: true })
+    // Try to order by `time` (newer schema). If that column doesn't exist, fall back to `date`.
+    let data: any = null
+    let error: any = null
+    try {
+      const r = await supabase.from("events").select("*").order("time", { ascending: true })
+      data = r.data
+      error = r.error
+    } catch (e) {
+      // ignore and fallback
+    }
+
+    if (error) {
+      const r2 = await supabase.from("events").select("*").order("date", { ascending: true })
+      data = r2.data
+      error = r2.error
+    }
+
     if (error) {
       console.error("Supabase error (events GET):", error)
       return NextResponse.json({ error: error.message, details: error }, { status: 500 })
     }
+
     return NextResponse.json(data || [], { status: 200 })
   } catch (err: any) {
     console.error("Unexpected error (events GET):", err)
@@ -40,15 +57,16 @@ export async function POST(req: Request) {
   const supabase = res.supabase
   try {
     const body = await req.json()
-    const title = String(body.title || "").trim()
-    const date = String(body.date || "").trim()
+    const name = String(body.name || "").trim()
+    const time = String(body.time || "").trim()
     const location = body.location ? String(body.location) : null
+    const matchup = body.matchup ? String(body.matchup) : null
 
-    if (!title || !date) {
-      return NextResponse.json({ error: "Title and date are required" }, { status: 400 })
+    if (!name || !time) {
+      return NextResponse.json({ error: "Name and time are required" }, { status: 400 })
     }
 
-    const { data, error } = await supabase.from("events").insert([{ title, date, location }]).select().single()
+    const { data, error } = await supabase.from("events").insert([{ name, time, location, matchup }]).select().single()
     if (error) {
       console.error("Supabase error (events POST):", error)
       return NextResponse.json({ error: error.message, details: error }, { status: 500 })

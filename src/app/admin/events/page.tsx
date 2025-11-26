@@ -48,14 +48,16 @@ export default function EventsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [showSignOutDialog, setShowSignOutDialog] = useState(false)
   const [showSignOutLoading, setShowSignOutLoading] = useState(false)
-  type EventItem = { id: string; title: string; date: string; location?: string }
+  type EventItem = { id: string; name?: string; title?: string; time?: string; date?: string; location?: string; matchup?: string }
   const [events, setEvents] = useState<EventItem[]>([
-    { id: "e1", title: "Intramural Opening", date: "2025-12-01", location: "Main Court" },
-    { id: "e2", title: "Quarterfinals", date: "2025-12-10", location: "Gym 2" },
+    { id: "e1", name: "Basketball", time: "2025-12-01T18:00", location: "Main Court", matchup: "Eagles vs Tigers" },
+    { id: "e2", name: "Volleyball", time: "2025-12-10T15:00", location: "Gym 2", matchup: "Blue Team vs Red Team" },
   ])
   const [showAddEvent, setShowAddEvent] = useState(false)
-  const [newTitle, setNewTitle] = useState("")
-  const [newDate, setNewDate] = useState("")
+  const [newName, setNewName] = useState("Basketball")
+  const [newTime, setNewTime] = useState("")
+  const [newLocation, setNewLocation] = useState("")
+  const [newMatchup, setNewMatchup] = useState("")
 
   useEffect(() => {
     async function load() {
@@ -63,7 +65,7 @@ export default function EventsPage() {
         const res = await fetch('/api/events')
         if (res.ok) {
           const data = await res.json()
-          if (Array.isArray(data)) setEvents(data.map((d: any) => ({ id: String(d.id), title: d.title, date: d.date, location: d.location })))
+          if (Array.isArray(data)) setEvents(data.map((d: any) => ({ id: String(d.id), name: d.name, time: d.time, location: d.location, matchup: d.matchup })))
         }
       } catch (err) {
         console.error('Failed to load events', err)
@@ -74,27 +76,29 @@ export default function EventsPage() {
 
   async function addEvent(e: React.FormEvent) {
     e.preventDefault()
-    if (!newTitle || !newDate) return
+    if (!newName || !newTime) return
     try {
       const res = await fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newTitle, date: newDate, location: '' })
+        body: JSON.stringify({ name: newName, time: newTime, location: newLocation, matchup: newMatchup })
       })
       if (!res.ok) {
         console.error('Failed to create event', await res.text())
-        setEvents((s) => [{ id: String(Date.now()), title: newTitle, date: newDate }, ...s])
+        setEvents((s) => [{ id: String(Date.now()), name: newName, time: newTime, location: newLocation, matchup: newMatchup }, ...s])
       } else {
         const created = await res.json()
-        setEvents((s) => [{ id: String(created.id), title: created.title, date: created.date, location: created.location }, ...s])
+        setEvents((s) => [{ id: String(created.id), name: created.name, time: created.time, location: created.location, matchup: created.matchup }, ...s])
       }
     } catch (err) {
       console.error('Create event error', err)
-      setEvents((s) => [{ id: String(Date.now()), title: newTitle, date: newDate }, ...s])
+      setEvents((s) => [{ id: String(Date.now()), name: newName, time: newTime, location: newLocation, matchup: newMatchup }, ...s])
     }
 
-    setNewTitle("")
-    setNewDate("")
+    setNewName("Basketball")
+    setNewTime("")
+    setNewLocation("")
+    setNewMatchup("")
     setShowAddEvent(false)
   }
 
@@ -271,10 +275,11 @@ export default function EventsPage() {
                   <div key={ev.id} className="bg-white rounded-2xl p-6 shadow">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-lg font-semibold">{ev.title}</h3>
+                        <h3 className="text-lg font-semibold">{ev.name ?? ev.title}</h3>
+                        {ev.matchup ? <p className="text-sm text-gray-700">{ev.matchup}</p> : null}
                         <p className="text-sm text-gray-500">{ev.location}</p>
                       </div>
-                      <div className="text-sm text-gray-600">{ev.date}</div>
+                      <div className="text-sm text-gray-600">{ev.time ?? ev.date}</div>
                     </div>
                   </div>
                 ))}
@@ -286,12 +291,27 @@ export default function EventsPage() {
                     <h3 className="text-lg font-semibold mb-4">Create Event</h3>
                     <form onSubmit={addEvent} className="space-y-4">
                       <div>
-                        <label className="block text-sm text-gray-700">Title</label>
-                        <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                        <label className="block text-sm text-gray-700">Event Type</label>
+                        <select value={newName} onChange={(e) => setNewName(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2">
+                          <option>Basketball</option>
+                          <option>Volleyball</option>
+                          <option>Soccer</option>
+                          <option>Baseball</option>
+                          <option>Tennis</option>
+                          <option>Other</option>
+                        </select>
                       </div>
                       <div>
-                        <label className="block text-sm text-gray-700">Date</label>
-                        <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                        <label className="block text-sm text-gray-700">Time</label>
+                        <input type="datetime-local" value={newTime} onChange={(e) => setNewTime(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-700">Location</label>
+                        <input value={newLocation} onChange={(e) => setNewLocation(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-700">Matchup (e.g. Team A vs Team B)</label>
+                        <input value={newMatchup} onChange={(e) => setNewMatchup(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
                       </div>
                       <div className="flex justify-end gap-3">
                         <button type="button" onClick={() => setShowAddEvent(false)} className="px-4 py-2 rounded-lg border">Cancel</button>
