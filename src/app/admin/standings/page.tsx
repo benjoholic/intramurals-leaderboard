@@ -48,6 +48,12 @@ export default function StandingsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [showSignOutDialog, setShowSignOutDialog] = useState(false)
   const [showSignOutLoading, setShowSignOutLoading] = useState(false)
+  type Standing = { rank: number; team: string; played: number; won: number; lost: number; pts: number }
+  const [standings, setStandings] = useState<Standing[]>([
+    { rank: 1, team: "Eagles", played: 6, won: 5, lost: 1, pts: 15 },
+    { rank: 2, team: "Tigers", played: 6, won: 4, lost: 2, pts: 12 },
+    { rank: 3, team: "Blue Team", played: 6, won: 3, lost: 3, pts: 9 },
+  ])
 
   const checkUser = useCallback(async () => {
     try {
@@ -207,61 +213,39 @@ export default function StandingsPage() {
             </div>
           ) : (
             <>
-          {/* Welcome Section Skeleton */}
-          <div className="mb-12 animate-pulse">
-            <div className="h-12 bg-gray-300 rounded-xl w-3/4 mb-4"></div>
-            <div className="h-6 bg-gray-200 rounded-lg w-1/2"></div>
-          </div>
-
-          {/* Stats Grid Skeleton */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            {[1, 2, 3, 4].map((item) => (
-              <div
-                key={item}
-                className="bg-white backdrop-blur-lg rounded-2xl border border-gray-200 p-6 shadow-xl animate-pulse"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-14 h-14 bg-gray-300 rounded-xl"></div>
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold">Standings</h2>
+                  <p className="text-sm text-gray-500">Current leaderboard</p>
                 </div>
-                <div className="h-4 bg-gray-200 rounded w-2/3 mb-3"></div>
-                <div className="h-8 bg-gray-300 rounded w-1/2 mb-3"></div>
-                <div className="h-3 bg-gray-200 rounded w-3/4"></div>
               </div>
-            ))}
-          </div>
 
-          {/* Quick Actions Skeleton */}
-          <div className="bg-white backdrop-blur-lg rounded-2xl border border-gray-200 p-8 shadow-xl">
-            <div className="h-8 bg-gray-300 rounded-lg w-1/4 mb-6 animate-pulse"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3, 4, 5, 6].map((item) => (
-                <div
-                  key={item}
-                  className="h-16 bg-gray-200 rounded-xl animate-pulse"
-                ></div>
-              ))}
-            </div>
-          </div>
-
-          {/* Coming Soon Notice - Bottom */}
-          <div className="mt-12 mb-8">
-            <div className="max-w-2xl mx-auto text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 mb-4 shadow-sm">
-                <Trophy className="w-8 h-8 text-amber-600" />
+              <div className="bg-white rounded-2xl p-4 shadow overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="text-sm text-gray-500 border-b">
+                      <th className="py-2 px-3">#</th>
+                      <th className="py-2 px-3">Team</th>
+                      <th className="py-2 px-3">P</th>
+                      <th className="py-2 px-3">W</th>
+                      <th className="py-2 px-3">L</th>
+                      <th className="py-2 px-3">Pts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {standings.map((s) => (
+                      <tr key={s.rank} className="border-b last:border-b-0">
+                        <td className="py-3 px-3">{s.rank}</td>
+                        <td className="py-3 px-3 font-medium">{s.team}</td>
+                        <td className="py-3 px-3">{s.played}</td>
+                        <td className="py-3 px-3">{s.won}</td>
+                        <td className="py-3 px-3">{s.lost}</td>
+                        <td className="py-3 px-3">{s.pts}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                Standings Management Coming Soon
-              </h3>
-              <p className="text-sm text-gray-500 max-w-md mx-auto">
-                Track team rankings, update scores, and manage the leaderboard in real-time.
-              </p>
-              <div className="mt-6 flex items-center justify-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
-                <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse delay-100"></div>
-                <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse delay-200"></div>
-              </div>
-            </div>
-          </div>
             </>
           )}
         </main>
