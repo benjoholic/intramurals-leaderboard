@@ -7,6 +7,7 @@ import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
+import { isAdmin } from "@/lib/auth-helpers"
 
 export default function AdminLogin() {
   const [showPassword, setShowPassword] = useState(false)
@@ -36,6 +37,26 @@ export default function AdminLogin() {
       }
 
       if (data.user) {
+        // Check if the user is an admin
+        const userIsAdmin = await isAdmin(data.user.id)
+        
+        if (!userIsAdmin) {
+          // Sign out the user since they don't have admin privileges
+          await supabase.auth.signOut()
+          
+          const errorMessage = "Invalid credentials or insufficient permissions. Please check your login details."
+          setError(errorMessage)
+          
+          toast.error("Authentication Failed", {
+            description: errorMessage,
+            icon: <AlertCircle className="w-5 h-5" />,
+            closeButton: false,
+          })
+          
+          setIsLoading(false)
+          return
+        }
+
         // Show success toast
         toast.success("Welcome back, Admin!", {
           description: "Successfully signed in",
