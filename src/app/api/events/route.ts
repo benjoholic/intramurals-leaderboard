@@ -56,8 +56,18 @@ export async function POST(req: Request) {
 
   const supabase = res.supabase
   try {
-    const body = await req.json()
-    const name = String(body.name || "").trim()
+    const body = (await req.json()) as unknown as {
+      event_type?: string
+      name?: string
+      title?: string
+      time?: string
+      location?: string | null
+      matchup?: string | null
+      team_a_id?: string | number | null
+      team_b_id?: string | number | null
+    }
+    // Prefer new `event_type` field, fall back to `name` or legacy `title`
+    const event_type = String(body.event_type || body.name || body.title || "").trim()
     const time = String(body.time || "").trim()
     const location = body.location ? String(body.location) : null
     let matchup = body.matchup ? String(body.matchup) : null
@@ -65,8 +75,8 @@ export async function POST(req: Request) {
     const team_a_id = body.team_a_id != null && body.team_a_id !== '' ? Number(body.team_a_id) : null
     const team_b_id = body.team_b_id != null && body.team_b_id !== '' ? Number(body.team_b_id) : null
 
-    if (!name || !time) {
-      return NextResponse.json({ error: "Name and time are required" }, { status: 400 })
+    if (!event_type || !time) {
+      return NextResponse.json({ error: "Event type and time are required" }, { status: 400 })
     }
 
     // If matchup is missing but team ids are provided, try to look up team names
@@ -74,10 +84,10 @@ export async function POST(req: Request) {
       if ((!matchup || matchup === "") && (team_a_id || team_b_id)) {
         const ids = [team_a_id, team_b_id].filter(Boolean)
         if (ids.length > 0) {
-          const r = await supabase.from('teams').select('id, name').in('id', ids as any)
+          const r = await supabase.from('teams').select('id, name').in('id', ids as number[])
           if (!r.error && Array.isArray(r.data)) {
             const map = new Map<string, string>()
-            r.data.forEach((t: any) => map.set(String(t.id), String(t.name)))
+            r.data.forEach((t: { id: number | string; name: string }) => map.set(String(t.id), String(t.name)))
             const aName = team_a_id ? map.get(String(team_a_id)) : null
             const bName = team_b_id ? map.get(String(team_b_id)) : null
             if (aName && bName) matchup = `${aName} vs ${bName}`
@@ -101,9 +111,17 @@ export async function POST(req: Request) {
       date = null
     }
 
-    const insertPayload: any = { name, time, location }
-    // legacy fields
-    insertPayload.title = body.title ?? name ?? null
+    const insertPayload: {
+      event_type?: string
+      time: string
+      date?: string | null
+      location?: string | null
+      matchup?: string | null
+      team_a_id?: number | null
+      team_b_id?: number | null
+    } = { time, location }
+    // store the new column `event_type` only — do not write legacy `title` or `name`
+    insertPayload.event_type = event_type
     if (date) insertPayload.date = date
     if (matchup) insertPayload.matchup = matchup
     if (team_a_id != null) insertPayload.team_a_id = team_a_id
@@ -145,5 +163,93 @@ export async function POST(req: Request) {
   } catch (err: any) {
     console.error("Unexpected error (events POST):", err)
     return NextResponse.json({ error: err.message || String(err) }, { status: 500 })
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const body = (await req.json()) as unknown as {
+      id?: number | string
+      event_type?: string
+      name?: string
+      time?: string
+      location?: string | null
+      matchup?: string | null
+      team_a_id?: string | number | null
+      team_b_id?: string | number | null
+    }
+    const { id } = body
+    if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+
+    const payload: {
+      event_type?: string
+      time?: string
+      location?: string | null
+      matchup?: string | null
+      team_a_id?: number | null | string
+      team_b_id?: number | null | string
+      date?: string
+    } = {}
+    // accept new `event_type` field, fall back to `name` for compatibility
+    if (body.event_type) payload.event_type = body.event_type
+    if (body.name && !body.event_type) payload.event_type = body.name
+    if (body.time) payload.time = body.time
+    if (body.location) payload.location = body.location
+    if (body.matchup) payload.matchup = body.matchup
+
+    // coerce team ids when provided
+    if (body.team_a_id != null && body.team_a_id !== '') {
+      const a = Number(body.team_a_id)
+      if (!Number.isNaN(a)) payload.team_a_id = a
+      else payload.team_a_id = body.team_a_id
+    }
+    if (body.team_b_id != null && body.team_b_id !== '') {
+      const b = Number(body.team_b_id)
+      if (!Number.isNaN(b)) payload.team_b_id = b
+      else payload.team_b_id = body.team_b_id
+    }
+
+    // backfill legacy columns if event_type/time provided
+    // do not set legacy `title` or `name` on updates; keep `event_type` as canonical
+    if (payload.time) payload.date = payload.time
+
+    // if matchup missing but team ids provided, try to resolve names
+    if (!payload.matchup && (payload.team_a_id || payload.team_b_id)) {
+      try {
+        const supabase = (await getSupabaseClient()).supabase
+        const idsToQuery: number[] = []
+        if (payload.team_a_id) idsToQuery.push(Number(payload.team_a_id))
+        if (payload.team_b_id) idsToQuery.push(Number(payload.team_b_id))
+        const { data: tdata } = await supabase.from('teams').select('id,name').in('id', idsToQuery as number[])
+        const a = tdata?.find((t: { id: number | string; name: string }) => String(t.id) === String(payload.team_a_id))
+        const b = tdata?.find((t: { id: number | string; name: string }) => String(t.id) === String(payload.team_b_id))
+        if (a && b) payload.matchup = `${a.name} vs ${b.name}`
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    const supabase = (await getSupabaseClient()).supabase
+    const { data, error } = await supabase.from('events').update(payload).eq('id', id).select().maybeSingle()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json(data ?? {}, { status: 200 })
+  } catch (err: any) {
+    console.error('PATCH /api/events error', err)
+    return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 })
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const body = await req.json()
+    const { id } = body
+    if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+    const supabase = (await getSupabaseClient()).supabase
+    const { data, error } = await supabase.from('events').delete().eq('id', id).select().maybeSingle()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ id: data?.id ?? id }, { status: 200 })
+  } catch (err: any) {
+    console.error('DELETE /api/events error', err)
+    return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 })
   }
 }
