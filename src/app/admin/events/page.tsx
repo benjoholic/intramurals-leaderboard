@@ -48,6 +48,55 @@ export default function EventsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [showSignOutDialog, setShowSignOutDialog] = useState(false)
   const [showSignOutLoading, setShowSignOutLoading] = useState(false)
+  type EventItem = { id: string; title: string; date: string; location?: string }
+  const [events, setEvents] = useState<EventItem[]>([
+    { id: "e1", title: "Intramural Opening", date: "2025-12-01", location: "Main Court" },
+    { id: "e2", title: "Quarterfinals", date: "2025-12-10", location: "Gym 2" },
+  ])
+  const [showAddEvent, setShowAddEvent] = useState(false)
+  const [newTitle, setNewTitle] = useState("")
+  const [newDate, setNewDate] = useState("")
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch('/api/events')
+        if (res.ok) {
+          const data = await res.json()
+          if (Array.isArray(data)) setEvents(data.map((d: any) => ({ id: String(d.id), title: d.title, date: d.date, location: d.location })))
+        }
+      } catch (err) {
+        console.error('Failed to load events', err)
+      }
+    }
+    load()
+  }, [])
+
+  async function addEvent(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newTitle || !newDate) return
+    try {
+      const res = await fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newTitle, date: newDate, location: '' })
+      })
+      if (!res.ok) {
+        console.error('Failed to create event', await res.text())
+        setEvents((s) => [{ id: String(Date.now()), title: newTitle, date: newDate }, ...s])
+      } else {
+        const created = await res.json()
+        setEvents((s) => [{ id: String(created.id), title: created.title, date: created.date, location: created.location }, ...s])
+      }
+    } catch (err) {
+      console.error('Create event error', err)
+      setEvents((s) => [{ id: String(Date.now()), title: newTitle, date: newDate }, ...s])
+    }
+
+    setNewTitle("")
+    setNewDate("")
+    setShowAddEvent(false)
+  }
 
   const checkUser = useCallback(async () => {
     try {
@@ -207,61 +256,51 @@ export default function EventsPage() {
             </div>
           ) : (
             <>
-          {/* Welcome Section Skeleton */}
-          <div className="mb-12 animate-pulse">
-            <div className="h-12 bg-gray-300 rounded-xl w-3/4 mb-4"></div>
-            <div className="h-6 bg-gray-200 rounded-lg w-1/2"></div>
-          </div>
-
-          {/* Stats Grid Skeleton */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            {[1, 2, 3, 4].map((item) => (
-              <div
-                key={item}
-                className="bg-white backdrop-blur-lg rounded-2xl border border-gray-200 p-6 shadow-xl animate-pulse"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-14 h-14 bg-gray-300 rounded-xl"></div>
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold">Events</h2>
+                  <p className="text-sm text-gray-500">Schedule and manage events</p>
                 </div>
-                <div className="h-4 bg-gray-200 rounded w-2/3 mb-3"></div>
-                <div className="h-8 bg-gray-300 rounded w-1/2 mb-3"></div>
-                <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+                <div>
+                  <button onClick={() => setShowAddEvent(true)} className="px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg">Add Event</button>
+                </div>
               </div>
-            ))}
-          </div>
 
-          {/* Quick Actions Skeleton */}
-          <div className="bg-white backdrop-blur-lg rounded-2xl border border-gray-200 p-8 shadow-xl">
-            <div className="h-8 bg-gray-300 rounded-lg w-1/4 mb-6 animate-pulse"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3, 4, 5, 6].map((item) => (
-                <div
-                  key={item}
-                  className="h-16 bg-gray-200 rounded-xl animate-pulse"
-                ></div>
-              ))}
-            </div>
-          </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {events.map((ev) => (
+                  <div key={ev.id} className="bg-white rounded-2xl p-6 shadow">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold">{ev.title}</h3>
+                        <p className="text-sm text-gray-500">{ev.location}</p>
+                      </div>
+                      <div className="text-sm text-gray-600">{ev.date}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
 
-          {/* Coming Soon Notice - Bottom */}
-          <div className="mt-12 mb-8">
-            <div className="max-w-2xl mx-auto text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-purple-100 to-purple-200 mb-4 shadow-sm">
-                <Calendar className="w-8 h-8 text-purple-600" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                Events Management Coming Soon
-              </h3>
-              <p className="text-sm text-gray-500 max-w-md mx-auto">
-                Schedule matches, create tournaments, and manage all your intramural events effortlessly.
-              </p>
-              <div className="mt-6 flex items-center justify-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></div>
-                <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse delay-100"></div>
-                <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse delay-200"></div>
-              </div>
-            </div>
-          </div>
+              {showAddEvent && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                  <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-xl">
+                    <h3 className="text-lg font-semibold mb-4">Create Event</h3>
+                    <form onSubmit={addEvent} className="space-y-4">
+                      <div>
+                        <label className="block text-sm text-gray-700">Title</label>
+                        <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-700">Date</label>
+                        <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                      </div>
+                      <div className="flex justify-end gap-3">
+                        <button type="button" onClick={() => setShowAddEvent(false)} className="px-4 py-2 rounded-lg border">Cancel</button>
+                        <button type="submit" className="px-4 py-2 bg-purple-600 text-white rounded-lg">Create</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </main>
