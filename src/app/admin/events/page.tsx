@@ -58,6 +58,9 @@ export default function EventsPage() {
   const [newTime, setNewTime] = useState("")
   const [newLocation, setNewLocation] = useState("")
   const [newMatchup, setNewMatchup] = useState("")
+  const [teamsList, setTeamsList] = useState<{ id: string; name: string }[]>([])
+  const [newTeamA, setNewTeamA] = useState<string | null>(null)
+  const [newTeamB, setNewTeamB] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -72,6 +75,18 @@ export default function EventsPage() {
       }
     }
     load()
+    // load teams for matchup selects
+    ;(async function loadTeams(){
+      try{
+        const r = await fetch('/api/teams')
+        if(r.ok){
+          const ts = await r.json()
+          if(Array.isArray(ts)) setTeamsList(ts.map((t: any) => ({ id: String(t.id), name: t.name })))
+        }
+      }catch(e){
+        console.error('Failed to load teams for event matchup', e)
+      }
+    })()
   }, [])
 
   async function addEvent(e: React.FormEvent) {
@@ -310,8 +325,29 @@ export default function EventsPage() {
                         <input value={newLocation} onChange={(e) => setNewLocation(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
                       </div>
                       <div>
-                        <label className="block text-sm text-gray-700">Matchup (e.g. Team A vs Team B)</label>
-                        <input value={newMatchup} onChange={(e) => setNewMatchup(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                        <label className="block text-sm text-gray-700">Matchup</label>
+                        <div className="mt-1 grid grid-cols-2 gap-2">
+                          <select value={newTeamA ?? ""} onChange={(e) => {
+                            const id = e.target.value || null
+                            setNewTeamA(id)
+                            const a = teamsList.find(t => t.id === id)
+                            const b = teamsList.find(t => t.id === newTeamB)
+                            setNewMatchup(a && b ? `${a.name} vs ${b.name}` : "")
+                          }} className="block w-full rounded-lg border px-3 py-2">
+                            <option value="">Select Team A</option>
+                            {teamsList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                          </select>
+                          <select value={newTeamB ?? ""} onChange={(e) => {
+                            const id = e.target.value || null
+                            setNewTeamB(id)
+                            const a = teamsList.find(t => t.id === newTeamA)
+                            const b = teamsList.find(t => t.id === id)
+                            setNewMatchup(a && b ? `${a.name} vs ${b.name}` : "")
+                          }} className="block w-full rounded-lg border px-3 py-2">
+                            <option value="">Select Team B</option>
+                            {teamsList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                          </select>
+                        </div>
                       </div>
                       <div className="flex justify-end gap-3">
                         <button type="button" onClick={() => setShowAddEvent(false)} className="px-4 py-2 rounded-lg border">Cancel</button>
