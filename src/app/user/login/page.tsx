@@ -68,9 +68,9 @@ export default function UserLogin() {
         // Show loading overlay
         setShowLoadingOverlay(true)
 
-        // Redirect to user dashboard after toast disappears (3 seconds)
+        // Redirect to user home page after toast disappears (3 seconds)
         setTimeout(() => {
-          router.push("/")
+          router.push("/user/home")
         }, 3000)
       }
     } catch (err: unknown) {
