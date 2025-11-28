@@ -554,14 +554,6 @@ export default function IntramuralLeaderboard() {
               Sign Up Now
             </Button>
             
-            <Button
-              variant="outline"
-              size="xl"
-              className="border-2 border-white text-white hover:bg-white/10"
-              icon={<Calendar className="w-5 h-5" />}
-            >
-              Schedule a Demo
-            </Button>
           </div>
         </div>
       </section>

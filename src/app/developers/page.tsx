@@ -62,7 +62,7 @@ export default function DevelopersPage() {
       name: "Benj Francis Ligeralde",
       role: "Lead Developer",
       description: "Full-stack developer specializing in React and Next.js",
-      image: "/Devs/Minsu.png",
+      image: "/Devs/Benj.jpg",
       skills: ["React", "Next.js", "Node.js", "TypeScript"],
     },
     {
@@ -139,13 +139,13 @@ export default function DevelopersPage() {
                 {/* Developer Image */}
                 <div className="mb-6 relative">
                   <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-green-600 rounded-full blur-xl opacity-30 animate-pulse"></div>
-                  <div className="relative w-32 h-32 mx-auto">
+                  <div className="relative w-32 h-32 mx-auto rounded-full overflow-hidden border-4 border-white/20 shadow-lg transition-transform duration-300 group-hover:scale-105">
                     <Image
                       src={developer.image}
                       alt={developer.name}
                       width={128}
                       height={128}
-                      className="rounded-full border-4 border-white/20 shadow-lg group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover"
                     />
                   </div>
                 </div>

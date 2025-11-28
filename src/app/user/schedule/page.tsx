@@ -9,6 +9,8 @@ import {
   Calendar as CalendarIcon,
   Users,
   Activity,
+  Clock,
+  MapPin,
   LogOut,
   Sparkles,
   Play
@@ -51,7 +53,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Calendar } from "@/components/ui/calendar"
 import { format } from "date-fns"
+import type { DayButtonProps } from "react-day-picker"
 
 type UserMetadata = {
   avatar?: string
@@ -79,15 +83,7 @@ type DatedEvent = EventItem & {
   dateObj: Date | null
 }
 
-type Team = {
-  id: string
-  name: string
-  color?: string | null
-  department?: string | null
-  event?: string | null
-}
-
-export default function UserHome() {
+export default function UserSchedule() {
   const router = useRouter()
   const [user, setUser] = useState<UserProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -96,9 +92,7 @@ export default function UserHome() {
   const [showAvatarDialog, setShowAvatarDialog] = useState(false)
   const [selectedAvatar, setSelectedAvatar] = useState<string>("")
   const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false)
-  const [teams, setTeams] = useState<Team[]>([])
-  const [isTeamsLoading, setIsTeamsLoading] = useState(true)
-  const [teamsError, setTeamsError] = useState<string | null>(null)
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const [events, setEvents] = useState<EventItem[]>([])
   const [isEventsLoading, setIsEventsLoading] = useState(true)
   const [eventsError, setEventsError] = useState<string | null>(null)
@@ -166,53 +160,6 @@ export default function UserHome() {
   useEffect(() => {
     let isMounted = true
 
-    async function loadTeams() {
-      setIsTeamsLoading(true)
-      setTeamsError(null)
-      try {
-        const res = await fetch("/api/teams")
-        if (!res.ok) {
-          const message = await res.text()
-          throw new Error(message || "Failed to fetch teams")
-        }
-        const data = await res.json()
-        if (!isMounted) return
-        if (Array.isArray(data)) {
-          setTeams(
-            data.map((team: any) => ({
-              id: String(team.id),
-              name: team.name ?? "Untitled Team",
-              color: team.color ?? null,
-              department: team.department ?? null,
-              event: team.event ?? null,
-            }))
-          )
-        } else {
-          setTeams([])
-        }
-      } catch (error) {
-        console.error("Failed to load teams:", error)
-        if (isMounted) {
-          setTeamsError("Unable to load teams right now.")
-          setTeams([])
-        }
-      } finally {
-        if (isMounted) {
-          setIsTeamsLoading(false)
-        }
-      }
-    }
-
-    loadTeams()
-
-    return () => {
-      isMounted = false
-    }
-  }, [])
-
-  useEffect(() => {
-    let isMounted = true
-
     async function loadEvents() {
       setIsEventsLoading(true)
       setEventsError(null)
@@ -272,8 +219,8 @@ export default function UserHome() {
 
   // Navigation items
   const navItems = [
-    { title: "Home", icon: Home, url: "/user/home", isActive: true },
-    { title: "Schedule", icon: CalendarIcon, url: "/user/schedule", isActive: false },
+    { title: "Home", icon: Home, url: "/user/home", isActive: false },
+    { title: "Schedule", icon: CalendarIcon, url: "/user/schedule", isActive: true },
     { title: "Games", icon: Play, url: "#", isActive: false },
     { title: "My Teams", icon: Users, url: "#", isActive: false },
     { title: "Standings", icon: Trophy, url: "#", isActive: false },
@@ -293,6 +240,8 @@ export default function UserHome() {
     return null
   }
 
+  const dateKey = (date: Date) => format(date, "yyyy-MM-dd")
+
   const formatEventDateTime = (dateObj: Date | null, pattern = "MMM d, p") => {
     if (!dateObj) return "TBD"
     try {
@@ -310,21 +259,15 @@ export default function UserHome() {
     }))
   }, [events])
 
-  const upcomingEvents = useMemo<DatedEvent[]>(() => {
-    const now = new Date()
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    return eventsWithDates
-      .filter((event) => event.dateObj && event.dateObj.getTime() >= startOfToday.getTime())
-      .sort((a, b) => (a.dateObj!.getTime() - b.dateObj!.getTime()))
-  }, [eventsWithDates])
+  const hasEvent = useCallback(
+    (date: Date) => eventsWithDates.some((event) => event.dateObj && dateKey(event.dateObj) === dateKey(date)),
+    [eventsWithDates]
+  )
 
-  // Top 3 teams for ranking
-  const topTeams = [
-    { rank: 1, name: "Team Alpha", points: 125 },
-    { rank: 2, name: "Team Beta", points: 118 },
-    { rank: 3, name: "Team Gamma", points: 112 },
-  ]
-  const currentGame = "Basketball" // Current game/sport name
+  const getEventsForDate = useCallback(
+    (date: Date) => eventsWithDates.filter((event) => event.dateObj && dateKey(event.dateObj) === dateKey(date)),
+    [eventsWithDates]
+  )
 
   if (isLoading || showSignOutLoading) {
     return (
@@ -464,198 +407,158 @@ export default function UserHome() {
         </header>
 
         <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8 bg-gradient-to-br from-green-50/30 via-white to-green-50/30">
-          <div className="flex flex-1 flex-col gap-4">
-          {/* Welcome Section */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card className="md:col-span-2 lg:col-span-4 border-green-200 bg-gradient-to-br from-green-600 to-green-800 text-white shadow-xl">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-3xl font-black mb-2">
-                      Welcome back! 👋
-                    </CardTitle>
-                    <CardDescription className="text-green-100 text-lg">
-                      {user?.email || "User"}
-                    </CardDescription>
-                  </div>
-                  <div className="p-4 bg-white/20 rounded-2xl backdrop-blur-sm">
-                    <Sparkles className="w-10 h-10 text-white" />
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-green-100 text-base">
-                  Track your intramural activities, view upcoming matches, and check your team standings.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+          <div className="max-w-6xl mx-auto">
+            <div className="mb-6">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Event Calendar</h1>
+              <p className="text-gray-600">View all scheduled matches and events</p>
+            </div>
 
-          {/* Stats Cards */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Card className="border-green-200 hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">Teams</CardTitle>
-                <Users className="h-4 w-4 text-green-600" />
+            <Card className="border-green-200 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CalendarIcon className="w-5 h-5 text-green-600" />
+                  Event Calendar
+                </CardTitle>
+                <CardDescription>Upcoming matches and events</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-700">
-                  {isTeamsLoading ? "…" : teams.length}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  {isTeamsLoading
-                    ? "Fetching teams…"
-                    : teams.length === 0
-                      ? "No teams yet"
-                      : "Active teams"}
-                </p>
-                {teamsError ? (
-                  <p className="text-xs text-red-500 mt-2">{teamsError}</p>
+              <CardContent className="space-y-8">
+                {isEventsLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="flex flex-col items-center space-y-4">
+                      <div className="flex space-x-2">
+                        <div 
+                          className="w-3 h-3 bg-green-600 rounded-full animate-bounce" 
+                          style={{ animationDelay: '-0.3s' }}
+                        ></div>
+                        <div 
+                          className="w-3 h-3 bg-green-600 rounded-full animate-bounce" 
+                          style={{ animationDelay: '-0.15s' }}
+                        ></div>
+                        <div 
+                          className="w-3 h-3 bg-green-600 rounded-full animate-bounce"
+                        ></div>
+                      </div>
+                      <p className="text-sm text-gray-600">Loading events...</p>
+                    </div>
+                  </div>
+                ) : eventsError ? (
+                  <div className="text-center py-12">
+                    <p className="text-red-500 mb-2">{eventsError}</p>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="text-sm text-green-600 hover:text-green-700 underline"
+                    >
+                      Try again
+                    </button>
+                  </div>
                 ) : (
-                  <div className="mt-3 space-y-2">
-                    {isTeamsLoading ? (
-                      <>
-                        <div className="h-6 w-full animate-pulse rounded-md bg-green-100/70" />
-                        <div className="h-6 w-3/4 animate-pulse rounded-md bg-green-100/70" />
-                        <div className="h-6 w-2/3 animate-pulse rounded-md bg-green-100/70" />
-                      </>
-                    ) : teams.length === 0 ? (
-                      <span className="text-xs text-gray-400">Awaiting admin teams</span>
-                    ) : (
-                      <>
-                        {teams.slice(0, 3).map((team) => (
-                          <div
-                            key={team.id}
-                            className="flex items-center justify-between rounded-lg border border-green-100 px-3 py-2 text-xs"
-                          >
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="w-3 h-3 rounded-full flex-shrink-0"
-                                style={{ 
-                                  backgroundColor: team.color ?? "rgba(16,185,129,0.6)",
-                                  border: `2px solid ${team.color ?? "rgba(16,185,129,0.8)"}`
+                  <>
+                    <div className="flex justify-center">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        className="rounded-2xl border border-green-100 bg-gradient-to-br from-green-50 to-white p-6 shadow-inner w-full max-w-4xl"
+                        classNames={{
+                          months: "w-full",
+                          month: "w-full",
+                          table: "w-full",
+                          head_cell: "text-xs font-semibold text-green-700",
+                          day: "h-12 w-12 text-sm font-medium aria-selected:opacity-100",
+                        }}
+                        components={{
+                          DayButton: ({ day, ...props }: DayButtonProps) => {
+                            const dateStr = format(day.date, 'yyyy-MM-dd')
+                            const hasEvents = hasEvent(day.date)
+                            const isSelected = selectedDate && format(selectedDate, 'yyyy-MM-dd') === dateStr
+                            
+                            return (
+                              <button
+                                {...props}
+                                onClick={(e) => {
+                                  e?.preventDefault?.()
+                                  if (hasEvents) {
+                                    setSelectedDate(day.date)
+                                  }
+                                  if (props.onClick) {
+                                    props.onClick(e)
+                                  }
                                 }}
-                              />
-                              <div>
-                                <p className="font-semibold text-gray-700">{team.name}</p>
-                                <p className="text-[11px] text-gray-500">
-                                  {team.department ?? team.event ?? "Team"}
+                                className={`relative h-12 w-12 rounded-lg text-base font-medium transition-all duration-200 hover:scale-105 hover:bg-green-100 ${
+                                  day.date.toDateString() === new Date().toDateString()
+                                    ? 'bg-green-100 text-green-900 font-semibold shadow-sm'
+                                    : 'text-gray-900'
+                                } ${
+                                  hasEvents ? 'bg-green-50 border border-green-300 cursor-pointer shadow-inner' : ''
+                                } ${
+                                  isSelected ? 'ring-2 ring-green-600 ring-offset-2' : ''
+                                }`}
+                              >
+                                {day.date.getDate()}
+                                {hasEvents && (
+                                  <span className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-green-600 rounded-full"></span>
+                                )}
+                              </button>
+                            )
+                          }
+                        }}
+                      />
+                    </div>
+                    {selectedDate && getEventsForDate(selectedDate).length > 0 && (
+                      <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                        <p className="text-sm font-semibold text-gray-900 mb-3">
+                          Events on {format(selectedDate, 'MMMM d, yyyy')}
+                        </p>
+                        <div className="space-y-3">
+                          {getEventsForDate(selectedDate).map((event) => (
+                            <div
+                              key={event.id}
+                              className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-100"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-green-600 rounded-lg text-white font-bold text-sm">
+                                  {(event.event_type || "E").charAt(0)}
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-gray-900 text-sm">{event.event_type}</p>
+                                  <p className="text-xs text-gray-600">
+                                    {event.matchup ?? "Matchup TBA"}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs font-medium text-gray-900 flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {formatEventDateTime(event.dateObj, "p")}
+                                </p>
+                                <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                                  <MapPin className="w-3 h-3" />
+                                  {event.location ?? "TBD"}
                                 </p>
                               </div>
                             </div>
-                          </div>
-                        ))}
-                        {teams.length > 3 ? (
-                          <span className="text-xs text-gray-500">
-                            +{teams.length - 3} more
-                          </span>
-                        ) : null}
-                      </>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="border-green-200 hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">Upcoming Events</CardTitle>
-                <CalendarIcon className="h-4 w-4 text-green-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-700">
-                  {isEventsLoading ? "…" : upcomingEvents.length}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  {isEventsLoading
-                    ? "Syncing schedule…"
-                    : upcomingEvents.length === 0
-                      ? "No scheduled events"
-                      : `Next: ${formatEventDateTime(upcomingEvents[0]?.dateObj, "MMM d, p")}`}
-                </p>
-                {eventsError ? (
-                  <p className="text-xs text-red-500 mt-2">{eventsError}</p>
-                ) : (
-                  <div className="mt-3 space-y-2">
-                    {isEventsLoading ? (
-                      <>
-                        <div className="h-6 w-full animate-pulse rounded-md bg-green-100/70" />
-                        <div className="h-6 w-3/4 animate-pulse rounded-md bg-green-100/70" />
-                        <div className="h-6 w-2/3 animate-pulse rounded-md bg-green-100/70" />
-                      </>
-                    ) : upcomingEvents.length === 0 ? (
-                      <span className="text-xs text-gray-400">Awaiting admin events</span>
-                    ) : (
-                      <>
-                        {upcomingEvents.slice(0, 3).map((event) => (
-                          <div
-                            key={event.id}
-                            className="flex items-center justify-between rounded-lg border border-green-100 px-3 py-2 text-xs"
-                          >
-                            <div>
-                              <p className="font-semibold text-gray-700">{event.event_type}</p>
-                              <p className="text-[11px] text-gray-500">
-                                {event.matchup ?? event.location ?? "Matchup TBA"}
-                              </p>
-                            </div>
-                            <div className="text-right text-[11px] text-gray-500">
-                              <p className="font-semibold text-gray-700">
-                                {formatEventDateTime(event.dateObj, "MMM d")}
-                              </p>
-                              <p>{formatEventDateTime(event.dateObj, "p")}</p>
-                            </div>
-                          </div>
-                        ))}
-                        {upcomingEvents.length > 3 ? (
-                          <span className="text-xs text-gray-500">
-                            +{upcomingEvents.length - 3} more
-                          </span>
-                        ) : null}
-                      </>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="border-green-200 hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">Top Teams</CardTitle>
-                <Trophy className="h-4 w-4 text-green-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="mb-3 pb-2 border-b border-green-100">
-                  <p className="text-xs font-semibold text-green-700 uppercase tracking-wide">{currentGame}</p>
-                </div>
-                <div className="mt-3 space-y-2">
-                  {topTeams.map((team) => (
-                    <div
-                      key={team.rank}
-                      className="flex items-center justify-between rounded-lg border border-green-100 px-3 py-2 text-xs"
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
-                          team.rank === 1 ? 'bg-yellow-500 text-white' :
-                          team.rank === 2 ? 'bg-gray-400 text-white' :
-                          'bg-amber-600 text-white'
-                        }`}>
-                          {team.rank}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-700">{team.name}</p>
-                          <p className="text-[11px] text-gray-500">Rank #{team.rank}</p>
+                          ))}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-700 text-xs">{team.points}</p>
-                        <p className="text-[11px] text-gray-500">pts</p>
+                    )}
+                    {selectedDate && getEventsForDate(selectedDate).length === 0 && (
+                      <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200 text-center">
+                        <p className="text-sm text-gray-600">
+                          No events scheduled for {format(selectedDate, 'MMMM d, yyyy')}
+                        </p>
+                      </div>
+                    )}
+                    <div className="mt-6 space-y-2">
+                      <p className="text-xs font-semibold text-gray-600 mb-2">Legend:</p>
+                      <div className="flex items-center gap-2 text-xs text-gray-600">
+                        <div className="w-3 h-3 rounded-full bg-green-600"></div>
+                        <span>Event scheduled</span>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </>
+                )}
               </CardContent>
             </Card>
-          </div>
           </div>
         </main>
       </SidebarInset>
@@ -723,4 +626,3 @@ export default function UserHome() {
     </SidebarProvider>
   )
 }
-

@@ -47,7 +47,7 @@ function Header() {
             </div>
 
             <div className="flex items-center">
-              <div className="hidden sm:flex sm:space-x-6">
+              <div className="hidden sm:flex sm:space-x-6 items-center">
                 {navigation.map((item) => (
                   <Link
                     key={item.name}
@@ -62,6 +62,12 @@ function Header() {
                     </span>
                   </Link>
                 ))}
+                <Link
+                  href="/user/login"
+                  className="inline-flex items-center px-5 py-2.5 text-sm font-semibold rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500 text-emerald-950 shadow-lg shadow-emerald-500/30 hover:from-emerald-300 hover:to-emerald-400 transition-all duration-300"
+                >
+                  Log In
+                </Link>
               </div>
 
               {/* Mobile menu button */}
@@ -111,6 +117,13 @@ function Header() {
                     </span>
                   </Link>
                 ))}
+                <Link
+                  href="/login"
+                  className="block w-full text-center px-4 py-3 text-sm font-semibold rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 text-emerald-950 shadow-lg shadow-emerald-500/30 hover:from-emerald-300 hover:to-emerald-400 transition-all duration-300"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Log In
+                </Link>
               </div>
             </div>
           </div>
