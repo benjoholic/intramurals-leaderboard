@@ -10,7 +10,8 @@ import {
   Trophy,
   Settings,
   BarChart3,
-  LogOut
+  LogOut,
+  Shuffle
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -48,6 +49,70 @@ export default function EventsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [showSignOutDialog, setShowSignOutDialog] = useState(false)
   const [showSignOutLoading, setShowSignOutLoading] = useState(false)
+  type EventItem = { id: string; event_type?: string; time?: string; date?: string; location?: string; points?: number | null }
+  const [events, setEvents] = useState<EventItem[]>([
+    { id: "e1", event_type: "Basketball", time: "2025-12-01T18:00", location: "Main Court" },
+    { id: "e2", event_type: "Volleyball", time: "2025-12-10T15:00", location: "Gym 2" },
+  ])
+  const [showAddEvent, setShowAddEvent] = useState(false)
+  const [newName, setNewName] = useState("Basketball")
+  const [newTime, setNewTime] = useState("")
+  const [newLocation, setNewLocation] = useState("")
+  const [newPoints, setNewPoints] = useState<number | "">("")
+  const [viewEvent, setViewEvent] = useState<EventItem | null>(null)
+  const [editEvent, setEditEvent] = useState<EventItem | null>(null)
+  const [editName, setEditName] = useState("")
+  const [editTime, setEditTime] = useState("")
+  const [editLocation, setEditLocation] = useState("")
+  const [editPoints, setEditPoints] = useState<number | "">("")
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch('/api/events')
+          if (res.ok) {
+          const data = await res.json()
+          if (Array.isArray(data)) setEvents(data.map((d: any) => ({ id: String(d.id), event_type: d.event_type, time: d.time, location: d.location, points: d.points ?? d.points_per_win ?? null })))
+        }
+      } catch (err) {
+        console.error('Failed to load events', err)
+      }
+    }
+    load()
+  }, [])
+
+  async function addEvent(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newName || !newTime) return
+    try {
+      const res = await fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_type: newName,
+          time: newTime,
+          location: newLocation,
+          points: typeof newPoints === 'number' ? newPoints : null,
+        })
+      })
+        if (!res.ok) {
+        console.error('Failed to create event', await res.text())
+        setEvents((s) => [{ id: String(Date.now()), event_type: newName, time: newTime, location: newLocation }, ...s])
+      } else {
+        const created = await res.json()
+        setEvents((s) => [{ id: String(created.id), event_type: created.event_type ?? '', time: created.time, location: created.location, points: created.points ?? null }, ...s])
+      }
+    } catch (err) {
+      console.error('Create event error', err)
+      setEvents((s) => [{ id: String(Date.now()), event_type: newName, time: newTime, location: newLocation, points: typeof newPoints === 'number' ? newPoints : null }, ...s])
+    }
+
+    setNewName("Basketball")
+    setNewTime("")
+    setNewLocation("")
+    setNewPoints("")
+    setShowAddEvent(false)
+  }
 
   const checkUser = useCallback(async () => {
     try {
@@ -87,6 +152,7 @@ export default function EventsPage() {
     { title: "Dashboard", icon: Home, url: "/admin/dashboard", isActive: false },
     { title: "Teams", icon: Users, url: "/admin/teams", isActive: false },
     { title: "Events", icon: Calendar, url: "/admin/events", isActive: true },
+    { title: "Matches", icon: Shuffle, url: "/admin/matches", isActive: false },
     { title: "Standings", icon: Trophy, url: "/admin/standings", isActive: false },
     { title: "Reports", icon: BarChart3, url: "/admin/reports", isActive: false },
     { title: "Settings", icon: Settings, url: "/admin/settings", isActive: false },
@@ -207,61 +273,175 @@ export default function EventsPage() {
             </div>
           ) : (
             <>
-          {/* Welcome Section Skeleton */}
-          <div className="mb-12 animate-pulse">
-            <div className="h-12 bg-gray-300 rounded-xl w-3/4 mb-4"></div>
-            <div className="h-6 bg-gray-200 rounded-lg w-1/2"></div>
-          </div>
-
-          {/* Stats Grid Skeleton */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            {[1, 2, 3, 4].map((item) => (
-              <div
-                key={item}
-                className="bg-white backdrop-blur-lg rounded-2xl border border-gray-200 p-6 shadow-xl animate-pulse"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-14 h-14 bg-gray-300 rounded-xl"></div>
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold">Events</h2>
+                  <p className="text-sm text-gray-500">Schedule and manage events</p>
                 </div>
-                <div className="h-4 bg-gray-200 rounded w-2/3 mb-3"></div>
-                <div className="h-8 bg-gray-300 rounded w-1/2 mb-3"></div>
-                <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+                <div>
+                  <button onClick={() => setShowAddEvent(true)} className="px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg">Add Event</button>
+                </div>
               </div>
-            ))}
-          </div>
 
-          {/* Quick Actions Skeleton */}
-          <div className="bg-white backdrop-blur-lg rounded-2xl border border-gray-200 p-8 shadow-xl">
-            <div className="h-8 bg-gray-300 rounded-lg w-1/4 mb-6 animate-pulse"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3, 4, 5, 6].map((item) => (
-                <div
-                  key={item}
-                  className="h-16 bg-gray-200 rounded-xl animate-pulse"
-                ></div>
-              ))}
-            </div>
-          </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {events.map((ev) => (
+                    <div key={ev.id} className="bg-gradient-to-br from-white to-green-50 rounded-2xl p-6 pb-6 shadow-lg hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-200 relative overflow-hidden border border-gray-100">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-4">
+                          <div className="flex flex-col">
+                            <h3 className="text-lg font-semibold text-gray-900">{ev.event_type}</h3>
+                            <p className="text-sm text-gray-500 mt-1">{ev.location}</p>
+                            {typeof ev.points === 'number' ? (
+                              <div className="mt-3 inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-semibold">
+                                <Trophy className="w-3 h-3" />
+                                <span>Points: {ev.points}</span>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="text-sm text-gray-600">{ev.time ?? ev.date}</div>
+                      </div>
 
-          {/* Coming Soon Notice - Bottom */}
-          <div className="mt-12 mb-8">
-            <div className="max-w-2xl mx-auto text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-purple-100 to-purple-200 mb-4 shadow-sm">
-                <Calendar className="w-8 h-8 text-purple-600" />
+                      <div className="mt-4 flex items-center justify-end gap-3">
+                        <div className="flex-1 text-sm text-gray-500">&nbsp;</div>
+                        <div className="flex gap-2">
+                          <button className="inline-flex items-center rounded-full border px-3 py-2 text-sm bg-white/95 hover:bg-white" onClick={() => setViewEvent(ev)}>View</button>
+                          <button className="inline-flex items-center rounded-full border px-3 py-2 text-sm bg-white/95 hover:bg-white" onClick={() => {
+                            setEditEvent(ev)
+                            setEditName(ev.event_type ?? "")
+                            setEditTime(ev.time ?? ev.date ?? "")
+                            setEditLocation(ev.location ?? "")
+                            setEditPoints(ev.points ?? "")
+                          }}>Edit</button>
+                          <button className="inline-flex items-center rounded-full border px-3 py-2 text-sm text-red-600 bg-white/95 hover:bg-white" onClick={async () => {
+                            const ok = window.confirm(`Delete event \"${ev.event_type}\"?`)
+                            if (!ok) return
+                            try {
+                              const res = await fetch('/api/events', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ev.id }) })
+                              const j = await res.json()
+                              if (!res.ok) throw new Error(j?.error || 'Failed to delete')
+                              setEvents((s) => s.filter(e => e.id !== ev.id))
+                            } catch (err) {
+                              console.error(err)
+                              alert('Failed to delete event')
+                            }
+                          }}>Delete</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
               </div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                Events Management Coming Soon
-              </h3>
-              <p className="text-sm text-gray-500 max-w-md mx-auto">
-                Schedule matches, create tournaments, and manage all your intramural events effortlessly.
-              </p>
-              <div className="mt-6 flex items-center justify-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></div>
-                <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse delay-100"></div>
-                <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse delay-200"></div>
-              </div>
-            </div>
-          </div>
+
+              {showAddEvent && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                  <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-xl">
+                    <h3 className="text-lg font-semibold mb-4">Create Event</h3>
+                    <form onSubmit={addEvent} className="space-y-4">
+                      <div>
+                        <label className="block text-sm text-gray-700">Event Type</label>
+                        <select value={newName} onChange={(e) => setNewName(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2">
+                          <option>Basketball</option>
+                          <option>Volleyball</option>
+                          <option>Soccer</option>
+                          <option>Baseball</option>
+                          <option>Tennis</option>
+                          <option>Other</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-700">Time</label>
+                        <input type="datetime-local" value={newTime} onChange={(e) => setNewTime(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-700">Location</label>
+                        <input value={newLocation} onChange={(e) => setNewLocation(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-700">Points (per win)</label>
+                        <input type="number" value={newPoints as any} onChange={(e) => setNewPoints(e.target.value === '' ? '' : Number(e.target.value))} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                      </div>
+                      <div className="flex justify-end gap-3">
+                        <button type="button" onClick={() => setShowAddEvent(false)} className="px-4 py-2 rounded-lg border">Cancel</button>
+                        <button type="submit" className="px-4 py-2 bg-purple-600 text-white rounded-lg">Create</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+                {/* View Event Modal */}
+                {viewEvent ? (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                    <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+                      <div className="p-6">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="text-2xl font-extrabold">{(viewEvent as any).event_type}</h3>
+                            {/* matchup hidden in view modal */}
+                            <p className="text-sm text-gray-500 mt-2">{viewEvent.location}</p>
+                          </div>
+                          <div className="text-sm text-gray-600">{viewEvent.time ?? viewEvent.date}</div>
+                        </div>
+                      </div>
+                      <div className="p-6 flex justify-end gap-3">
+                          <button className="rounded-md border px-3 py-1" onClick={() => {
+                          // open edit modal prefilled
+                          setEditEvent(viewEvent)
+                          setViewEvent(null)
+                          setEditName((viewEvent as any).event_type ?? "")
+                          setEditTime(viewEvent.time ?? viewEvent.date ?? "")
+                          setEditLocation(viewEvent.location ?? "")
+                          setEditPoints((viewEvent as any).points ?? "")
+                        }}>Edit</button>
+                        <button className="rounded-md px-3 py-1 bg-gray-100" onClick={() => setViewEvent(null)}>Close</button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* Edit Event Modal */}
+                {editEvent ? (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6">
+                      <h3 className="text-lg font-semibold mb-4">Edit Event</h3>
+                      <div className="space-y-3">
+                        <label className="block">
+                          <span className="text-sm">Event Type</span>
+                          <input value={editName} onChange={(e) => setEditName(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                        </label>
+                        <label className="block">
+                          <span className="text-sm">Points (per win)</span>
+                          <input type="number" value={editPoints as any} onChange={(e) => setEditPoints(e.target.value === '' ? '' : Number(e.target.value))} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                        </label>
+                        <label className="block">
+                          <span className="text-sm">Time</span>
+                          <input type="datetime-local" value={editTime} onChange={(e) => setEditTime(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                        </label>
+                        <label className="block">
+                          <span className="text-sm">Location</span>
+                          <input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                        </label>
+                        {/* matchup removed from edit form */}
+                      </div>
+                      <div className="mt-6 flex justify-end gap-2">
+                        <button className="rounded-md border px-3 py-1" onClick={() => setEditEvent(null)}>Cancel</button>
+                        <button className="rounded bg-primary px-3 py-1 text-white" onClick={async () => {
+                          try {
+                            const res = await fetch('/api/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editEvent.id, event_type: editName, time: editTime, location: editLocation }) })
+                            const j = await res.json()
+                            if (!res.ok) throw new Error(j?.error || 'Failed to update')
+                            // update local state (keep points if returned)
+                            setEvents((s) => s.map(ev => ev.id === editEvent.id ? { id: String(j.id ?? editEvent.id), event_type: j.event_type ?? editName, time: j.time ?? editTime, location: j.location ?? editLocation, points: j.points ?? editPoints } : ev))
+                            setEditEvent(null)
+                          } catch (err) {
+                            console.error(err)
+                            alert('Failed to update event')
+                          }
+                        }}>Save</button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
             </>
           )}
         </main>

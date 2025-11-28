@@ -10,7 +10,8 @@ import {
   Trophy,
   Settings,
   BarChart3,
-  LogOut
+  LogOut,
+  Shuffle
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -48,6 +49,8 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [showSignOutDialog, setShowSignOutDialog] = useState(false)
   const [showSignOutLoading, setShowSignOutLoading] = useState(false)
+  const [siteName, setSiteName] = useState("Intramurals Manager")
+  const [allowSignup, setAllowSignup] = useState(true)
 
   const checkUser = useCallback(async () => {
     try {
@@ -87,6 +90,7 @@ export default function SettingsPage() {
     { title: "Dashboard", icon: Home, url: "/admin/dashboard", isActive: false },
     { title: "Teams", icon: Users, url: "/admin/teams", isActive: false },
     { title: "Events", icon: Calendar, url: "/admin/events", isActive: false },
+    { title: "Matches", icon: Shuffle, url: "/admin/matches", isActive: false },
     { title: "Standings", icon: Trophy, url: "/admin/standings", isActive: false },
     { title: "Reports", icon: BarChart3, url: "/admin/reports", isActive: false },
     { title: "Settings", icon: Settings, url: "/admin/settings", isActive: true },
@@ -207,61 +211,36 @@ export default function SettingsPage() {
             </div>
           ) : (
             <>
-          {/* Welcome Section Skeleton */}
-          <div className="mb-12 animate-pulse">
-            <div className="h-12 bg-gray-300 rounded-xl w-3/4 mb-4"></div>
-            <div className="h-6 bg-gray-200 rounded-lg w-1/2"></div>
-          </div>
-
-          {/* Stats Grid Skeleton */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            {[1, 2, 3, 4].map((item) => (
-              <div
-                key={item}
-                className="bg-white backdrop-blur-lg rounded-2xl border border-gray-200 p-6 shadow-xl animate-pulse"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-14 h-14 bg-gray-300 rounded-xl"></div>
-                </div>
-                <div className="h-4 bg-gray-200 rounded w-2/3 mb-3"></div>
-                <div className="h-8 bg-gray-300 rounded w-1/2 mb-3"></div>
-                <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold">Settings</h2>
+                <p className="text-sm text-gray-500">Application configuration</p>
               </div>
-            ))}
-          </div>
 
-          {/* Quick Actions Skeleton */}
-          <div className="bg-white backdrop-blur-lg rounded-2xl border border-gray-200 p-8 shadow-xl">
-            <div className="h-8 bg-gray-300 rounded-lg w-1/4 mb-6 animate-pulse"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3, 4, 5, 6].map((item) => (
-                <div
-                  key={item}
-                  className="h-16 bg-gray-200 rounded-xl animate-pulse"
-                ></div>
-              ))}
-            </div>
-          </div>
+              <div className="bg-white rounded-2xl p-6 shadow max-w-2xl">
+                <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); /* pretend save */ }}>
+                  <div>
+                    <label className="block text-sm text-gray-700">Site Name</label>
+                    <input value={siteName} onChange={(e) => setSiteName(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                  </div>
 
-          {/* Coming Soon Notice - Bottom */}
-          <div className="mt-12 mb-8">
-            <div className="max-w-2xl mx-auto text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 mb-4 shadow-sm">
-                <Settings className="w-8 h-8 text-slate-600" />
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">Allow Signup</p>
+                      <p className="text-xs text-gray-500">Allow new users to sign up</p>
+                    </div>
+                    <div>
+                      <label className="inline-flex items-center">
+                        <input type="checkbox" checked={allowSignup} onChange={(e) => setAllowSignup(e.target.checked)} className="mr-2" />
+                        <span className="text-sm">Enabled</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3">
+                    <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded-lg">Save Settings</button>
+                  </div>
+                </form>
               </div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                Settings Coming Soon
-              </h3>
-              <p className="text-sm text-gray-500 max-w-md mx-auto">
-                Configure system settings, manage user permissions, and customize your intramural management experience.
-              </p>
-              <div className="mt-6 flex items-center justify-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-slate-500 animate-pulse"></div>
-                <div className="w-2 h-2 rounded-full bg-slate-500 animate-pulse delay-100"></div>
-                <div className="w-2 h-2 rounded-full bg-slate-500 animate-pulse delay-200"></div>
-              </div>
-            </div>
-          </div>
             </>
           )}
         </main>

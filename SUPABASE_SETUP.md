@@ -106,3 +106,83 @@ If you encounter authentication errors:
 3. Verify that the Email authentication provider is enabled in Supabase
 4. Check the browser console and network tab for detailed error messages
 
+## Database Tables Required by the App
+
+The backend API routes expect two tables in your Supabase database: `teams` and `events`.
+If you see an error like:
+
+```
+{"error":"Could not find the table 'public.teams' in the schema cache"}
+```
+
+it means the table does not exist yet. Run the SQL below in the Supabase SQL Editor (Dashboard → SQL Editor) to create them.
+
+```sql
+-- Teams table
+CREATE TABLE IF NOT EXISTS public.teams (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name TEXT NOT NULL,
+  color TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Events table
+CREATE TABLE IF NOT EXISTS public.events (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  title TEXT NOT NULL,
+  date DATE NOT NULL,
+  location TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+```
+
+Notes:
+- The server code calls `select('*')` on these tables and expects `id`, `name` (teams) and `title`, `date`, `location` (events).
+- If you prefer UUIDs, change the `id` definitions to `UUID DEFAULT gen_random_uuid()` (you'll need the pgcrypto extension).
+
+## Row-Level Security (RLS) and Policies
+
+If RLS is enabled on your database tables, anonymous (public) requests using the anon key will be denied unless you add policies. For quick testing you can disable RLS for those tables, or add permissive policies:
+
+```sql
+-- Disable RLS (not recommended for production)
+ALTER TABLE public.teams DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.events DISABLE ROW LEVEL SECURITY;
+
+-- OR create simple policies to allow public selects/inserts (testing only)
+ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_select_public" ON public.teams FOR SELECT USING (true);
+CREATE POLICY "allow_insert_public" ON public.teams FOR INSERT WITH CHECK (true);
+
+ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_select_public" ON public.events FOR SELECT USING (true);
+CREATE POLICY "allow_insert_public" ON public.events FOR INSERT WITH CHECK (true);
+```
+
+Security recommendation:
+- For production, do NOT use the anon key for privileged server operations. Use a Service Role key on the server only and keep it secret (not exposed to the browser). If you will perform writes from server-side API routes, create a server Supabase client in a secure file using `process.env.SUPABASE_SERVICE_ROLE_KEY`.
+
+## Quick test after creating tables
+
+From your local machine you can test the API routes with curl (replace host if different):
+
+```powershell
+# List teams
+curl http://localhost:3000/api/teams
+
+# Create a team
+curl -X POST http://localhost:3000/api/teams -H "Content-Type: application/json" -d '{"name":"Test Team","color":"#ff0000"}'
+```
+
+If the POST succeeds you'll get the created row back. If you still see a table-not-found error, make sure you ran the SQL in the correct Supabase project and schema (`public`).
+
+-- If you added `department` and `event` fields in the UI, make sure the columns exist in the `teams` table. You can run these ALTER statements in the Supabase SQL editor, or apply the migration file `supabase/migrations/002_add_team_department_event.sql` that was added to the repository:
+
+```sql
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS department TEXT;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS event TEXT;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS logo TEXT;
+```
+
+After running the ALTER statements, re-run the failing request (create/update) from the UI or via curl.
+

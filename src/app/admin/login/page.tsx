@@ -309,7 +309,7 @@ export default function AdminLogin() {
 
       {/* Footer Note */}
       <div className="absolute bottom-8 text-center text-sm text-gray-500">
-        <p>© {new Date().getFullYear()} Intramurals. All rights reserved.</p>
+        <p>© 2025 Intramurals. All rights reserved.</p>
       </div>
 
       {/* Loading Overlay */}

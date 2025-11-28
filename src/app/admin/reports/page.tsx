@@ -10,7 +10,8 @@ import {
   Trophy,
   Settings,
   BarChart3,
-  LogOut
+  LogOut,
+  Shuffle
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -48,6 +49,11 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [showSignOutDialog, setShowSignOutDialog] = useState(false)
   const [showSignOutLoading, setShowSignOutLoading] = useState(false)
+  const [reports] = useState([
+    { id: "r1", title: "Weekly Summary", description: "Teams and match summary for the week" },
+    { id: "r2", title: "Participation", description: "Participant counts and trends" },
+    { id: "r3", title: "Match Results", description: "All match results and scores" },
+  ])
 
   const checkUser = useCallback(async () => {
     try {
@@ -87,6 +93,7 @@ export default function ReportsPage() {
     { title: "Dashboard", icon: Home, url: "/admin/dashboard", isActive: false },
     { title: "Teams", icon: Users, url: "/admin/teams", isActive: false },
     { title: "Events", icon: Calendar, url: "/admin/events", isActive: false },
+    { title: "Matches", icon: Shuffle, url: "/admin/matches", isActive: false },
     { title: "Standings", icon: Trophy, url: "/admin/standings", isActive: false },
     { title: "Reports", icon: BarChart3, url: "/admin/reports", isActive: true },
     { title: "Settings", icon: Settings, url: "/admin/settings", isActive: false },
@@ -207,61 +214,28 @@ export default function ReportsPage() {
             </div>
           ) : (
             <>
-          {/* Welcome Section Skeleton */}
-          <div className="mb-12 animate-pulse">
-            <div className="h-12 bg-gray-300 rounded-xl w-3/4 mb-4"></div>
-            <div className="h-6 bg-gray-200 rounded-lg w-1/2"></div>
-          </div>
-
-          {/* Stats Grid Skeleton */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            {[1, 2, 3, 4].map((item) => (
-              <div
-                key={item}
-                className="bg-white backdrop-blur-lg rounded-2xl border border-gray-200 p-6 shadow-xl animate-pulse"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-14 h-14 bg-gray-300 rounded-xl"></div>
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold">Reports</h2>
+                  <p className="text-sm text-gray-500">Pre-built reports and analytics</p>
                 </div>
-                <div className="h-4 bg-gray-200 rounded w-2/3 mb-3"></div>
-                <div className="h-8 bg-gray-300 rounded w-1/2 mb-3"></div>
-                <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+                <div>
+                  <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg">Generate Report</button>
+                </div>
               </div>
-            ))}
-          </div>
 
-          {/* Quick Actions Skeleton */}
-          <div className="bg-white backdrop-blur-lg rounded-2xl border border-gray-200 p-8 shadow-xl">
-            <div className="h-8 bg-gray-300 rounded-lg w-1/4 mb-6 animate-pulse"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3, 4, 5, 6].map((item) => (
-                <div
-                  key={item}
-                  className="h-16 bg-gray-200 rounded-xl animate-pulse"
-                ></div>
-              ))}
-            </div>
-          </div>
-
-          {/* Coming Soon Notice - Bottom */}
-          <div className="mt-12 mb-8">
-            <div className="max-w-2xl mx-auto text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-200 mb-4 shadow-sm">
-                <BarChart3 className="w-8 h-8 text-indigo-600" />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {reports.map((r) => (
+                  <div key={r.id} className="bg-white rounded-2xl p-6 shadow">
+                    <h3 className="text-lg font-semibold">{r.title}</h3>
+                    <p className="text-sm text-gray-500 mb-4">{r.description}</p>
+                    <div className="flex items-center gap-2">
+                      <button className="px-3 py-2 rounded-lg border">View</button>
+                      <button className="px-3 py-2 rounded-lg border">Export</button>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                Reports & Analytics Coming Soon
-              </h3>
-              <p className="text-sm text-gray-500 max-w-md mx-auto">
-                Generate comprehensive reports, view analytics, and track performance metrics across all intramural activities.
-              </p>
-              <div className="mt-6 flex items-center justify-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
-                <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse delay-100"></div>
-                <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse delay-200"></div>
-              </div>
-            </div>
-          </div>
             </>
           )}
         </main>
