@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Home, Users, Calendar, Trophy, Settings, BarChart3, LogOut, Shuffle, Clock, MapPin, X } from "lucide-react"
@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-export default function MatchesPage() {
+export default function CoordinatorMatchesPage() {
   const router = useRouter()
   const [user, setUser] = useState<{ email?: string } | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -45,43 +45,57 @@ export default function MatchesPage() {
   const [eventsList, setEventsList] = useState<{ id: string; event_type?: string; location?: string | null }[]>([])
   const [matchesList, setMatchesList] = useState<any[]>([])
 
-  const [showAddMatch, setShowAddMatch] = useState(false)
-  const [newTeamA, setNewTeamA] = useState<string | null>(null)
-  const [newTeamB, setNewTeamB] = useState<string | null>(null)
-  const [newEventId, setNewEventId] = useState<string | null>(null)
-  const [newDate, setNewDate] = useState<string>("")
-  const [newTime, setNewTime] = useState<string>("")
-  const [newLocation, setNewLocation] = useState<string>("")
   const [showDetails, setShowDetails] = useState(false)
   const [selectedMatch, setSelectedMatch] = useState<any | null>(null)
-
-  const navItems = [
-    { title: "Dashboard", icon: Home, url: "/admin/dashboard", isActive: false },
-    { title: "Teams", icon: Users, url: "/admin/teams", isActive: false },
-    { title: "Events", icon: Calendar, url: "/admin/events", isActive: false },
-    { title: "Matches", icon: Shuffle, url: "/admin/matches", isActive: true },
-    { title: "Standings", icon: Trophy, url: "/admin/standings", isActive: false },
-    { title: "Reports", icon: BarChart3, url: "/admin/reports", isActive: false },
-    { title: "Settings", icon: Settings, url: "/admin/settings", isActive: false },
-  ]
+  const [editScoreA, setEditScoreA] = useState<number | null>(null)
+  const [editScoreB, setEditScoreB] = useState<number | null>(null)
 
   async function loadLookups() {
     try {
-      const [tRes, eRes, mRes] = await Promise.all([fetch("/api/teams"), fetch("/api/events"), fetch("/api/matches")])
-      if (tRes.ok) {
-        const ts = await tRes.json()
-        if (Array.isArray(ts)) setTeamsList(ts.map((t: any) => ({ id: String(t.id), name: t.name, logo: t.logo_url ?? t.logo ?? t.image_url ?? t.avatar_url ?? null })))
+      // fetch teams
+      try {
+        const tRes = await fetch('/api/teams')
+        if (tRes.ok) {
+          const ts = await tRes.json()
+          if (Array.isArray(ts)) setTeamsList(ts.map((t: any) => ({ id: String(t.id), name: t.name, logo: t.logo_url ?? t.logo ?? t.image_url ?? t.avatar_url ?? null })))
+        } else {
+          const raw = await tRes.text()
+          console.error('/api/teams error', tRes.status, raw)
+        }
+      } catch (e) {
+        console.error('Failed to fetch /api/teams', e)
       }
-      if (eRes.ok) {
-        const es = await eRes.json()
-        if (Array.isArray(es)) setEventsList(es.map((ev: any) => ({ id: String(ev.id), event_type: ev.event_type ?? ev.name ?? ev.title, location: ev.location ?? null })))
+
+      // fetch events
+      try {
+        const eRes = await fetch('/api/events')
+        if (eRes.ok) {
+          const es = await eRes.json()
+          if (Array.isArray(es)) setEventsList(es.map((ev: any) => ({ id: String(ev.id), event_type: ev.event_type ?? ev.name ?? ev.title, location: ev.location ?? null })))
+        } else {
+          const raw = await eRes.text()
+          console.error('/api/events error', eRes.status, raw)
+        }
+      } catch (e) {
+        console.error('Failed to fetch /api/events', e)
       }
-      if (mRes.ok) {
-        const ms = await mRes.json()
-        if (Array.isArray(ms)) setMatchesList(ms)
+
+      // fetch matches
+      try {
+        const mRes = await fetch('/api/matches')
+        if (mRes.ok) {
+          const ms = await mRes.json()
+          if (Array.isArray(ms)) setMatchesList(ms)
+        } else {
+          const raw = await mRes.text()
+          console.error('/api/matches error', mRes.status, raw)
+        }
+      } catch (e) {
+        console.error('Failed to fetch /api/matches', e)
       }
     } catch (err) {
-      console.error('loadLookups error', err)
+      // generic fallback
+      console.error('loadLookups unexpected error', err)
     }
   }
 
@@ -89,6 +103,54 @@ export default function MatchesPage() {
     setIsLoading(true)
     loadLookups().finally(() => setIsLoading(false))
   }, [])
+
+  const handleSignOut = async () => {
+    setShowSignOutDialog(false)
+    setShowSignOutLoading(true)
+    await supabase.auth.signOut()
+    setTimeout(() => router.push('/admin/login'), 800)
+  }
+
+  const openDetails = (m: any) => {
+    setSelectedMatch(m)
+    setEditScoreA(typeof m.score_a === 'number' ? m.score_a : null)
+    setEditScoreB(typeof m.score_b === 'number' ? m.score_b : null)
+    setShowDetails(true)
+  }
+
+  const saveScores = async () => {
+    if (!selectedMatch) return
+    const payload: any = { id: selectedMatch.id }
+    if (Number.isFinite(editScoreA)) payload.score_a = editScoreA
+    if (Number.isFinite(editScoreB)) payload.score_b = editScoreB
+
+    try {
+      const res = await fetch('/api/matches', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      if (!res.ok) {
+        const txt = await res.text()
+        throw new Error(txt || 'Failed to update')
+      }
+      const updated = await res.json()
+
+      // update local lists
+      setMatchesList((s) => s.map((x) => (String(x.id) === String(updated.id) ? updated : x)))
+      setSelectedMatch(updated)
+      setShowDetails(false)
+    } catch (err) {
+      console.error('Failed to save scores', err)
+      alert('Failed to save scores')
+    }
+  }
+
+  const navItems = [
+    { title: 'Dashboard', icon: Home, url: '/coordinator/dashboard', isActive: false },
+    { title: 'Teams', icon: Users, url: '/coordinator/teams', isActive: false },
+    { title: 'Events', icon: Calendar, url: '/coordinator/events', isActive: false },
+    { title: 'Matches', icon: Shuffle, url: '/coordinator/matches', isActive: true },
+    { title: 'Standings', icon: Trophy, url: '/coordinator/standings', isActive: false },
+    { title: 'Reports', icon: BarChart3, url: '/coordinator/reports', isActive: false },
+    { title: 'Settings', icon: Settings, url: '/coordinator/settings', isActive: false },
+  ]
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -109,10 +171,10 @@ export default function MatchesPage() {
         <SidebarHeader className="border-b border-green-100 p-6">
           <div className="flex flex-col items-center space-y-3">
             <div className="w-20 h-20 rounded-full shadow-xl ring-4 ring-green-100 overflow-hidden">
-              <Image src="/images/Benj.jpg" alt="Admin Avatar" width={80} height={80} className="w-full h-full object-cover" />
+              <Image src="/images/Benj.jpg" alt="Coordinator Avatar" width={80} height={80} className="w-full h-full object-cover" />
             </div>
             <div className="text-center w-full">
-              <p className="text-sm font-semibold text-gray-900 truncate">Administrator</p>
+              <p className="text-sm font-semibold text-gray-900 truncate">Coordinator</p>
               <p className="text-xs text-gray-500 truncate">{user?.email}</p>
             </div>
           </div>
@@ -149,8 +211,9 @@ export default function MatchesPage() {
         <SidebarRail />
       </Sidebar>
 
-        <SidebarInset>
-          <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between border-b border-green-700 bg-gradient-to-r from-green-900/95 to-green-800/95 backdrop-blur-lg px-4 shadow-lg">
+      <SidebarInset>
+        <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between border-b border-green-700 bg-gradient-to-r from-green-900/95 to-green-800/95 backdrop-blur-lg px-4 shadow-lg">
+          <div className="flex items-center gap-4">
             <SidebarTrigger className="-ml-1 text-white hover:bg-green-800 hover:text-emerald-200" />
             <Separator orientation="vertical" className="h-6 bg-green-700" />
             <div className="flex items-center space-x-3">
@@ -163,6 +226,12 @@ export default function MatchesPage() {
                 <span className="text-xs text-emerald-400/70 hidden md:block">Management System</span>
               </div>
             </div>
+          </div>
+          <div className="flex items-center space-x-3">
+            <div className="hidden lg:flex items-center px-3 py-1.5 bg-green-800/50 rounded-lg border border-green-700/50">
+              <span className="text-xs text-emerald-300 font-medium">Coordinator Panel</span>
+            </div>
+          </div>
         </header>
 
         <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8 bg-gradient-to-br from-green-50/30 via-white to-green-50/30">
@@ -183,10 +252,7 @@ export default function MatchesPage() {
               <div className="mb-6 flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold">Matches</h2>
-                  <p className="text-sm text-gray-500">Manage scheduled matches</p>
-                </div>
-                <div>
-                  <button onClick={() => setShowAddMatch(true)} className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg">Add Match</button>
+                  <p className="text-sm text-gray-500">View matches and update scores from here.</p>
                 </div>
               </div>
 
@@ -195,7 +261,7 @@ export default function MatchesPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {matchesList.length === 0 ? (
                   <div className="bg-white rounded-2xl p-6 shadow text-center">
-                    <p className="text-sm text-gray-600">No matches yet. Create one using the button above.</p>
+                    <p className="text-sm text-gray-600">No matches found.</p>
                   </div>
                 ) : (
                   matchesList.map((m) => {
@@ -235,7 +301,6 @@ export default function MatchesPage() {
                             <div className="text-2xl font-extrabold text-gray-900">{m.score_a ?? '0'}</div>
                           </div>
 
-                          {/* VS Divider */}
                           <div className="flex items-center justify-center my-4">
                             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
                             <span className="px-4 text-sm font-bold text-gray-400">VS</span>
@@ -258,20 +323,19 @@ export default function MatchesPage() {
                             <div className="text-2xl font-extrabold text-gray-900">{m.score_b ?? '0'}</div>
                           </div>
 
+                          <div className="mt-4 h-px bg-gray-100" />
 
-                            <div className="mt-4 h-px bg-gray-100" />
-
-                            <div className="mt-4 text-sm text-gray-600">
-                              <div className="bg-transparent">
-                                <div className="flex items-center gap-3 py-2 px-2"><Calendar className="w-4 h-4 text-green-600" /><span>{formattedDate}</span></div>
-                                <div className="flex items-center gap-3 py-2 px-2"><Clock className="w-4 h-4 text-green-600" /><span>{formattedTime}</span></div>
-                                <div className="flex items-center gap-3 py-2 px-2"><MapPin className="w-4 h-4 text-green-600" /><span>{m.location ?? ev?.location ?? ''}</span></div>
-                              </div>
-
-                              <div className="mt-6 px-0">
-                                <button onClick={() => { setSelectedMatch(m); setShowDetails(true); }} className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold shadow-sm">View Details</button>
-                              </div>
+                          <div className="mt-4 text-sm text-gray-600">
+                            <div className="bg-transparent">
+                              <div className="flex items-center gap-3 py-2 px-2"><Calendar className="w-4 h-4 text-green-600" /><span>{formattedDate}</span></div>
+                              <div className="flex items-center gap-3 py-2 px-2"><Clock className="w-4 h-4 text-green-600" /><span>{formattedTime}</span></div>
+                              <div className="flex items-center gap-3 py-2 px-2"><MapPin className="w-4 h-4 text-green-600" /><span>{m.location ?? ev?.location ?? ''}</span></div>
                             </div>
+
+                            <div className="mt-6 px-0">
+                              <button onClick={() => openDetails(m)} className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold shadow-sm">View / Score</button>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )
@@ -283,113 +347,10 @@ export default function MatchesPage() {
         </main>
       </SidebarInset>
 
-      {showAddMatch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-xl">
-            <h3 className="text-lg font-semibold mb-4">Create Match</h3>
-            <form onSubmit={async (e) => {
-              e.preventDefault()
-              if (!newTeamA || !newTeamB || !newEventId || !newDate || !newTime) return alert('Please choose both teams, an event, date, and time')
-              if (newTeamA === newTeamB) return alert('Please choose two different teams')
-              // combine date and time into an ISO-like string matching datetime-local format
-              const combined = `${newDate}T${newTime}`
-              const payload: any = {
-                team_a_id: newTeamA,
-                team_b_id: newTeamB,
-                event_id: newEventId,
-                time: combined,
-              }
-              if (newLocation && newLocation.trim() !== '') payload.location = newLocation.trim()
-              try{
-                const res = await fetch('/api/matches', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-                if (!res.ok) {
-                  // fallback: just close and show success locally
-                  console.warn('POST /api/matches failed, falling back to local behavior')
-                  setShowAddMatch(false)
-                  return
-                }
-                const created = await res.json()
-                setMatchesList(s => [created, ...s])
-                setShowAddMatch(false)
-              }catch(err){
-                console.error('Create match error', err)
-                setShowAddMatch(false)
-              }
-            }} className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-700">Event</label>
-                <select value={newEventId ?? ""} onChange={(e) => {
-                  const val = e.target.value || null
-                  setNewEventId(val)
-                  const selected = eventsList.find(ev => String(ev.id) === String(val))
-                  setNewLocation(selected?.location ?? "")
-                }} className="mt-1 block w-full rounded-lg border px-3 py-2">
-                  <option value="">Select Event</option>
-                  {eventsList.map(ev => <option key={ev.id} value={ev.id}>{ev.event_type}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-700">Team A</label>
-                <select value={newTeamA ?? ""} onChange={(e) => setNewTeamA(e.target.value || null)} className="mt-1 block w-full rounded-lg border px-3 py-2">
-                  <option value="">Select Team A</option>
-                  {teamsList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-700">Team B</label>
-                <select value={newTeamB ?? ""} onChange={(e) => setNewTeamB(e.target.value || null)} className="mt-1 block w-full rounded-lg border px-3 py-2">
-                  <option value="">Select Team B</option>
-                  {teamsList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm text-gray-700">Date</label>
-                  <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700">Time</label>
-                  <input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-700">Location</label>
-                <input value={newLocation} onChange={(e) => setNewLocation(e.target.value)} placeholder="Enter location or keep event default" className="mt-1 block w-full rounded-lg border px-3 py-2" />
-                <p className="text-xs text-gray-500 mt-1">Defaults from the selected event but can be edited here.</p>
-              </div>
-
-              <div className="flex justify-end gap-3">
-                <button type="button" onClick={() => setShowAddMatch(false)} className="px-4 py-2 rounded-lg border">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg">Create</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Sign Out Confirmation Dialog */}
-      <AlertDialog open={showSignOutDialog} onOpenChange={setShowSignOutDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Sign Out</AlertDialogTitle>
-            <AlertDialogDescription>Are you sure you want to sign out? You will need to log in again to access the admin panel.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={async () => { setShowSignOutDialog(false); setShowSignOutLoading(true); await supabase.auth.signOut(); setTimeout(() => router.push('/admin/login'), 800) }} className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white">Sign Out</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Match Details Modal */}
+      {/* Match Details Modal with scoring */}
       {showDetails && selectedMatch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-6">
           <div className="relative w-full max-w-3xl bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
-            {/* Themed gradient banner */}
             <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-r from-emerald-700 to-emerald-500" />
 
             <div className="absolute top-4 right-4">
@@ -398,7 +359,6 @@ export default function MatchesPage() {
               </button>
             </div>
 
-            {/* add top padding so content sits below the themed banner */}
             <div className="px-8 pt-12 pb-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -413,7 +373,6 @@ export default function MatchesPage() {
               <div className="mt-4 h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
 
               <div className="mt-8 flex items-center justify-between gap-6">
-                {/* Team A */}
                 <div className="flex-1 flex flex-col items-center text-center">
                   {(() => {
                     const teamA = teamsList.find(t => String(t.id) === String(selectedMatch.team_a_id))
@@ -422,7 +381,10 @@ export default function MatchesPage() {
                   })()}
                   <div className="w-20 h-px bg-gray-100 mt-4" />
                   <p className="mt-4 text-lg font-semibold text-gray-900">{teamsList.find(t => String(t.id) === String(selectedMatch.team_a_id))?.name}</p>
-                  <p className="mt-2 text-4xl font-extrabold text-gray-900">{selectedMatch.score_a ?? '0'}</p>
+                  <div className="mt-2">
+                    <label className="text-sm text-gray-500 block mb-2">Score</label>
+                    <input type="number" value={editScoreA ?? ''} onChange={(e) => setEditScoreA(e.target.value === '' ? null : Number(e.target.value))} className="w-24 text-center text-4xl font-extrabold" />
+                  </div>
                 </div>
 
                 <div className="flex-shrink-0 flex flex-col items-center justify-center">
@@ -431,7 +393,6 @@ export default function MatchesPage() {
                   </div>
                 </div>
 
-                {/* Team B */}
                 <div className="flex-1 flex flex-col items-center text-center">
                   {(() => {
                     const teamB = teamsList.find(t => String(t.id) === String(selectedMatch.team_b_id))
@@ -440,7 +401,10 @@ export default function MatchesPage() {
                   })()}
                   <div className="w-20 h-px bg-gray-100 mt-4" />
                   <p className="mt-4 text-lg font-semibold text-gray-900">{teamsList.find(t => String(t.id) === String(selectedMatch.team_b_id))?.name}</p>
-                  <p className="mt-2 text-4xl font-extrabold text-gray-900">{selectedMatch.score_b ?? '0'}</p>
+                  <div className="mt-2">
+                    <label className="text-sm text-gray-500 block mb-2">Score</label>
+                    <input type="number" value={editScoreB ?? ''} onChange={(e) => setEditScoreB(e.target.value === '' ? null : Number(e.target.value))} className="w-24 text-center text-4xl font-extrabold" />
+                  </div>
                 </div>
               </div>
 
@@ -450,13 +414,28 @@ export default function MatchesPage() {
                 <div className="flex items-center gap-3"><MapPin className="w-5 h-5 text-green-600" /><span>{selectedMatch.location ?? eventsList.find(e => String(e.id) === String(selectedMatch.event_id))?.location ?? ''}</span></div>
               </div>
 
-              <div className="mt-8 flex justify-end">
-                <button onClick={() => setShowDetails(false)} className="px-4 py-2 rounded-full border bg-white hover:bg-gray-50">Close</button>
+              <div className="mt-8 flex justify-end gap-3">
+                <button onClick={() => setShowDetails(false)} className="px-4 py-2 rounded-full border bg-white hover:bg-gray-50">Cancel</button>
+                <button onClick={saveScores} className="px-4 py-2 rounded-full bg-emerald-600 text-white">Save Scores</button>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Sign Out Confirmation Dialog */}
+      <AlertDialog open={showSignOutDialog} onOpenChange={setShowSignOutDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Sign Out</AlertDialogTitle>
+            <AlertDialogDescription>Are you sure you want to sign out? You will need to log in again to access the coordinator panel.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSignOut} className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white">Sign Out</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {showSignOutLoading && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-md animate-in fade-in duration-300">

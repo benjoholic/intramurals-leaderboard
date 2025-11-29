@@ -312,7 +312,7 @@ export default function EventsPage() {
       {showDetails && selectedMatch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-2xl bg-white rounded-2xl p-6 shadow-xl relative overflow-hidden">
-            <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-[140%] bg-black/90 rotate-[22deg] origin-center z-0" />
+            {/* decorative diagonal divider removed for landing modal */}
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="text-xl font-bold">{selectedMatch.sport ?? 'Match Details'}</h3>

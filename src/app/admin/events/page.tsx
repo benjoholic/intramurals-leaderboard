@@ -49,33 +49,53 @@ export default function EventsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [showSignOutDialog, setShowSignOutDialog] = useState(false)
   const [showSignOutLoading, setShowSignOutLoading] = useState(false)
-  type EventItem = { id: string; event_type?: string; time?: string; date?: string; location?: string; points?: number | null }
-  const [events, setEvents] = useState<EventItem[]>([
-    { id: "e1", event_type: "Basketball", time: "2025-12-01T18:00", location: "Main Court" },
-    { id: "e2", event_type: "Volleyball", time: "2025-12-10T15:00", location: "Gym 2" },
-  ])
+  type EventItem = { id: string; event_type?: string; time?: string; date?: string; location?: string; points?: number | null; first_point?: number | null; second_point?: number | null; third_point?: number | null }
+  const [events, setEvents] = useState<EventItem[]>([])
+  const [eventsError, setEventsError] = useState<string | null>(null)
   const [showAddEvent, setShowAddEvent] = useState(false)
-  const [newName, setNewName] = useState("Basketball")
+  const [newName, setNewName] = useState("")
   const [newTime, setNewTime] = useState("")
   const [newLocation, setNewLocation] = useState("")
   const [newPoints, setNewPoints] = useState<number | "">("")
+  const [newPoints1, setNewPoints1] = useState<string>("")
+  const [newPoints2, setNewPoints2] = useState<string>("")
+  const [newPoints3, setNewPoints3] = useState<string>("")
   const [viewEvent, setViewEvent] = useState<EventItem | null>(null)
   const [editEvent, setEditEvent] = useState<EventItem | null>(null)
   const [editName, setEditName] = useState("")
   const [editTime, setEditTime] = useState("")
   const [editLocation, setEditLocation] = useState("")
   const [editPoints, setEditPoints] = useState<number | "">("")
+  const [editFirst, setEditFirst] = useState<string>("")
+  const [editSecond, setEditSecond] = useState<string>("")
+  const [editThird, setEditThird] = useState<string>("")
+
+  // Debug: log when editEvent changes to help diagnose UI clicks
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line no-console
+      console.log('editEvent state changed:', editEvent)
+    } catch (e) {}
+  }, [editEvent])
 
   useEffect(() => {
     async function load() {
       try {
         const res = await fetch('/api/events')
-          if (res.ok) {
+        if (res.ok) {
           const data = await res.json()
-          if (Array.isArray(data)) setEvents(data.map((d: any) => ({ id: String(d.id), event_type: d.event_type, time: d.time, location: d.location, points: d.points ?? d.points_per_win ?? null })))
+          if (Array.isArray(data)) setEvents(data.map((d: any) => ({ id: String(d.id), event_type: d.event_type, time: d.time, location: d.location, points: d.points ?? d.points_per_win ?? null, first_point: d.first_point ?? d.points_first ?? (d.points_breakdown?.first ?? null), second_point: d.second_point ?? d.points_second ?? (d.points_breakdown?.second ?? null), third_point: d.third_point ?? d.points_third ?? (d.points_breakdown?.third ?? null) })))
+          setEventsError(null)
+        } else {
+          const raw = await res.text()
+          let msg = raw
+          try { const j = JSON.parse(raw); msg = j?.error || JSON.stringify(j) } catch (e) {}
+          console.error('/api/events returned error', res.status, msg)
+          setEventsError(msg)
         }
       } catch (err) {
         console.error('Failed to load events', err)
+        setEventsError((err as any)?.message ?? String(err))
       }
     }
     load()
@@ -83,34 +103,47 @@ export default function EventsPage() {
 
   async function addEvent(e: React.FormEvent) {
     e.preventDefault()
-    if (!newName || !newTime) return
+    if (!newName) return
     try {
       const res = await fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           event_type: newName,
-          time: newTime,
-          location: newLocation,
-          points: typeof newPoints === 'number' ? newPoints : null,
+          // send separate point columns using requested names
+          first_point: (newPoints1 !== '' && !Number.isNaN(Number(newPoints1))) ? Number(newPoints1) : null,
+          second_point: (newPoints2 !== '' && !Number.isNaN(Number(newPoints2))) ? Number(newPoints2) : null,
+          third_point: (newPoints3 !== '' && !Number.isNaN(Number(newPoints3))) ? Number(newPoints3) : null,
         })
       })
         if (!res.ok) {
-        console.error('Failed to create event', await res.text())
-        setEvents((s) => [{ id: String(Date.now()), event_type: newName, time: newTime, location: newLocation }, ...s])
+        const raw = await res.text()
+        let msg = raw
+        try {
+          const j = JSON.parse(raw)
+          msg = j?.error || JSON.stringify(j)
+        } catch (e) {
+          // leave raw text
+        }
+        console.error('Failed to create event:', msg)
+        // show user-friendly alert
+        try { alert(`Failed to create event: ${msg}`) } catch (e) {}
       } else {
         const created = await res.json()
-        setEvents((s) => [{ id: String(created.id), event_type: created.event_type ?? '', time: created.time, location: created.location, points: created.points ?? null }, ...s])
+        // attach separate point fields to created record for UI display (new names)
+        const createdWithPoints = { ...created, first_point: created.first_point ?? created.points_first ?? ((newPoints1 !== '' && !Number.isNaN(Number(newPoints1))) ? Number(newPoints1) : null), second_point: created.second_point ?? created.points_second ?? ((newPoints2 !== '' && !Number.isNaN(Number(newPoints2))) ? Number(newPoints2) : null), third_point: created.third_point ?? created.points_third ?? ((newPoints3 !== '' && !Number.isNaN(Number(newPoints3))) ? Number(newPoints3) : null) }
+        setEvents((s) => [{ id: String(created.id), event_type: created.event_type ?? '', points: created.points ?? null, first_point: createdWithPoints.first_point, second_point: createdWithPoints.second_point, third_point: createdWithPoints.third_point }, ...s])
       }
     } catch (err) {
       console.error('Create event error', err)
-      setEvents((s) => [{ id: String(Date.now()), event_type: newName, time: newTime, location: newLocation, points: typeof newPoints === 'number' ? newPoints : null }, ...s])
+      try { alert(`Failed to create event: ${(err as any)?.message ?? String(err)}`) } catch (e) {}
     }
 
-    setNewName("Basketball")
-    setNewTime("")
-    setNewLocation("")
+    setNewName("")
     setNewPoints("")
+    setNewPoints1("")
+    setNewPoints2("")
+    setNewPoints3("")
     setShowAddEvent(false)
   }
 
@@ -283,6 +316,12 @@ export default function EventsPage() {
                 </div>
               </div>
 
+              {eventsError ? (
+                <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-100 text-red-700">
+                  <strong>Failed to load events:</strong> {eventsError}
+                </div>
+              ) : null}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {events.map((ev) => (
                     <div key={ev.id} className="bg-gradient-to-br from-white to-green-50 rounded-2xl p-6 pb-6 shadow-lg hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-200 relative overflow-hidden border border-gray-100">
@@ -291,7 +330,16 @@ export default function EventsPage() {
                           <div className="flex flex-col">
                             <h3 className="text-lg font-semibold text-gray-900">{ev.event_type}</h3>
                             <p className="text-sm text-gray-500 mt-1">{ev.location}</p>
-                            {typeof ev.points === 'number' ? (
+                            { (ev.first_point != null || ev.second_point != null || ev.third_point != null) ? (
+                              <div className="mt-3 inline-flex items-center gap-3 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-semibold">
+                                <Trophy className="w-3 h-3" />
+                                <span>1st: {ev.first_point ?? ev.points ?? 0}</span>
+                                <span className="opacity-70">•</span>
+                                <span>2nd: {ev.second_point ?? 0}</span>
+                                <span className="opacity-70">•</span>
+                                <span>3rd: {ev.third_point ?? 0}</span>
+                              </div>
+                            ) : typeof ev.points === 'number' ? (
                               <div className="mt-3 inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-semibold">
                                 <Trophy className="w-3 h-3" />
                                 <span>Points: {ev.points}</span>
@@ -307,23 +355,40 @@ export default function EventsPage() {
                         <div className="flex gap-2">
                           <button className="inline-flex items-center rounded-full border px-3 py-2 text-sm bg-white/95 hover:bg-white" onClick={() => setViewEvent(ev)}>View</button>
                           <button className="inline-flex items-center rounded-full border px-3 py-2 text-sm bg-white/95 hover:bg-white" onClick={() => {
+                            try { console.log('Edit button clicked for event', ev?.id) } catch (e) {}
                             setEditEvent(ev)
                             setEditName(ev.event_type ?? "")
-                            setEditTime(ev.time ?? ev.date ?? "")
-                            setEditLocation(ev.location ?? "")
-                            setEditPoints(ev.points ?? "")
+                            // Prefill first/second/third point values (fallback to single points)
+                            setEditFirst(ev.first_point != null ? String(ev.first_point) : (ev.points != null ? String(ev.points) : ""))
+                            setEditSecond(ev.second_point != null ? String(ev.second_point) : "")
+                            setEditThird(ev.third_point != null ? String(ev.third_point) : "")
                           }}>Edit</button>
                           <button className="inline-flex items-center rounded-full border px-3 py-2 text-sm text-red-600 bg-white/95 hover:bg-white" onClick={async () => {
                             const ok = window.confirm(`Delete event \"${ev.event_type}\"?`)
                             if (!ok) return
-                            try {
-                              const res = await fetch('/api/events', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ev.id }) })
-                              const j = await res.json()
-                              if (!res.ok) throw new Error(j?.error || 'Failed to delete')
+
+                            // If this is a local-only placeholder id (e.g. "e1"), just remove locally
+                            const idStr = String(ev.id)
+                            if (!/^-?\d+$/.test(idStr)) {
                               setEvents((s) => s.filter(e => e.id !== ev.id))
-                            } catch (err) {
-                              console.error(err)
-                              alert('Failed to delete event')
+                              return
+                            }
+
+                            try {
+                              // send id as query param (also accepted from JSON body on server)
+                              const url = `/api/events?id=${encodeURIComponent(idStr)}`
+                              const res = await fetch(url, { method: 'DELETE' })
+                              const raw = await res.text()
+                              let j: any = null
+                              try { j = JSON.parse(raw) } catch (e) { j = null }
+                              if (!res.ok) {
+                                const msg = j?.error || raw || 'Failed to delete'
+                                throw new Error(msg)
+                              }
+                              setEvents((s) => s.filter(e => e.id !== ev.id))
+                            } catch (err: any) {
+                              console.error('Delete event failed', err)
+                              try { alert(`Failed to delete event: ${err?.message || String(err)}`) } catch (e) {}
                             }
                           }}>Delete</button>
                         </div>
@@ -333,32 +398,27 @@ export default function EventsPage() {
               </div>
 
               {showAddEvent && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                <div style={{ zIndex: 10000 }} className="fixed inset-0 flex items-center justify-center bg-black/40">
                   <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-xl">
                     <h3 className="text-lg font-semibold mb-4">Create Event</h3>
                     <form onSubmit={addEvent} className="space-y-4">
                       <div>
                         <label className="block text-sm text-gray-700">Event Type</label>
-                        <select value={newName} onChange={(e) => setNewName(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2">
-                          <option>Basketball</option>
-                          <option>Volleyball</option>
-                          <option>Soccer</option>
-                          <option>Baseball</option>
-                          <option>Tennis</option>
-                          <option>Other</option>
-                        </select>
+                        <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Basketball" className="mt-1 block w-full rounded-lg border px-3 py-2" />
                       </div>
-                      <div>
-                        <label className="block text-sm text-gray-700">Time</label>
-                        <input type="datetime-local" value={newTime} onChange={(e) => setNewTime(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-700">Location</label>
-                        <input value={newLocation} onChange={(e) => setNewLocation(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-700">Points (per win)</label>
-                        <input type="number" value={newPoints as any} onChange={(e) => setNewPoints(e.target.value === '' ? '' : Number(e.target.value))} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-sm text-gray-700">1st (points)</label>
+                          <input type="text" inputMode="numeric" value={newPoints1} onChange={(e) => setNewPoints1(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-gray-700">2nd (points)</label>
+                          <input type="text" inputMode="numeric" value={newPoints2} onChange={(e) => setNewPoints2(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-gray-700">3rd (points)</label>
+                          <input type="text" inputMode="numeric" value={newPoints3} onChange={(e) => setNewPoints3(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                        </div>
                       </div>
                       <div className="flex justify-end gap-3">
                         <button type="button" onClick={() => setShowAddEvent(false)} className="px-4 py-2 rounded-lg border">Cancel</button>
@@ -371,27 +431,26 @@ export default function EventsPage() {
 
                 {/* View Event Modal */}
                 {viewEvent ? (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                  <div style={{ zIndex: 10000 }} className="fixed inset-0 flex items-center justify-center bg-black/40">
                     <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
                       <div className="p-6">
                         <div className="flex items-start justify-between">
                           <div>
                             <h3 className="text-2xl font-extrabold">{(viewEvent as any).event_type}</h3>
-                            {/* matchup hidden in view modal */}
-                            <p className="text-sm text-gray-500 mt-2">{viewEvent.location}</p>
+                            <p className="text-sm text-gray-500 mt-2">{(viewEvent as any).location}</p>
                           </div>
-                          <div className="text-sm text-gray-600">{viewEvent.time ?? viewEvent.date}</div>
+                          <div className="text-sm text-gray-600">{(viewEvent as any).time ?? (viewEvent as any).date}</div>
                         </div>
                       </div>
                       <div className="p-6 flex justify-end gap-3">
-                          <button className="rounded-md border px-3 py-1" onClick={() => {
+                        <button className="rounded-md border px-3 py-1" onClick={() => {
                           // open edit modal prefilled
                           setEditEvent(viewEvent)
                           setViewEvent(null)
                           setEditName((viewEvent as any).event_type ?? "")
-                          setEditTime(viewEvent.time ?? viewEvent.date ?? "")
-                          setEditLocation(viewEvent.location ?? "")
-                          setEditPoints((viewEvent as any).points ?? "")
+                          setEditFirst((viewEvent as any).first_point != null ? String((viewEvent as any).first_point) : ((viewEvent as any).points != null ? String((viewEvent as any).points) : ""))
+                          setEditSecond((viewEvent as any).second_point != null ? String((viewEvent as any).second_point) : "")
+                          setEditThird((viewEvent as any).third_point != null ? String((viewEvent as any).third_point) : "")
                         }}>Edit</button>
                         <button className="rounded-md px-3 py-1 bg-gray-100" onClick={() => setViewEvent(null)}>Close</button>
                       </div>
@@ -399,49 +458,54 @@ export default function EventsPage() {
                   </div>
                 ) : null}
 
-                {/* Edit Event Modal */}
-                {editEvent ? (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                    <div className="w-full max-w-md rounded-2xl bg-white p-6">
-                      <h3 className="text-lg font-semibold mb-4">Edit Event</h3>
-                      <div className="space-y-3">
+              {/* Edit Event Modal */}
+              {editEvent && (
+                <div style={{ zIndex: 10000 }} className="fixed inset-0 flex items-center justify-center bg-black/40">
+                  <div className="w-full max-w-md rounded-2xl bg-white p-6">
+                    <h3 className="text-lg font-semibold mb-4">Edit Event</h3>
+                    <div className="space-y-3">
+                      <label className="block">
+                        <span className="text-sm">Event Type</span>
+                        <input value={editName} onChange={(e) => setEditName(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                      </label>
+                      <div className="grid grid-cols-3 gap-3">
                         <label className="block">
-                          <span className="text-sm">Event Type</span>
-                          <input value={editName} onChange={(e) => setEditName(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                          <span className="text-sm">1st (points)</span>
+                          <input type="text" inputMode="numeric" value={editFirst} onChange={(e) => setEditFirst(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
                         </label>
                         <label className="block">
-                          <span className="text-sm">Points (per win)</span>
-                          <input type="number" value={editPoints as any} onChange={(e) => setEditPoints(e.target.value === '' ? '' : Number(e.target.value))} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                          <span className="text-sm">2nd (points)</span>
+                          <input type="text" inputMode="numeric" value={editSecond} onChange={(e) => setEditSecond(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
                         </label>
                         <label className="block">
-                          <span className="text-sm">Time</span>
-                          <input type="datetime-local" value={editTime} onChange={(e) => setEditTime(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                          <span className="text-sm">3rd (points)</span>
+                          <input type="text" inputMode="numeric" value={editThird} onChange={(e) => setEditThird(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
                         </label>
-                        <label className="block">
-                          <span className="text-sm">Location</span>
-                          <input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2" />
-                        </label>
-                        {/* matchup removed from edit form */}
-                      </div>
-                      <div className="mt-6 flex justify-end gap-2">
-                        <button className="rounded-md border px-3 py-1" onClick={() => setEditEvent(null)}>Cancel</button>
-                        <button className="rounded bg-primary px-3 py-1 text-white" onClick={async () => {
-                          try {
-                            const res = await fetch('/api/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editEvent.id, event_type: editName, time: editTime, location: editLocation }) })
-                            const j = await res.json()
-                            if (!res.ok) throw new Error(j?.error || 'Failed to update')
-                            // update local state (keep points if returned)
-                            setEvents((s) => s.map(ev => ev.id === editEvent.id ? { id: String(j.id ?? editEvent.id), event_type: j.event_type ?? editName, time: j.time ?? editTime, location: j.location ?? editLocation, points: j.points ?? editPoints } : ev))
-                            setEditEvent(null)
-                          } catch (err) {
-                            console.error(err)
-                            alert('Failed to update event')
-                          }
-                        }}>Save</button>
                       </div>
                     </div>
+                    <div className="mt-6 flex justify-end gap-2">
+                      <button className="rounded-md border px-3 py-1" onClick={() => setEditEvent(null)}>Cancel</button>
+                      <button className="rounded bg-primary px-3 py-1 text-white" onClick={async () => {
+                        try {
+                          const body: any = { id: editEvent.id, event_type: editName }
+                          if (editFirst !== '') body.first_point = !Number.isNaN(Number(editFirst)) ? Number(editFirst) : null
+                          if (editSecond !== '') body.second_point = !Number.isNaN(Number(editSecond)) ? Number(editSecond) : null
+                          if (editThird !== '') body.third_point = !Number.isNaN(Number(editThird)) ? Number(editThird) : null
+
+                          const res = await fetch('/api/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+                          const j = await res.json()
+                          if (!res.ok) throw new Error(j?.error || 'Failed to update')
+                          setEvents((s) => s.map(ev => ev.id === editEvent.id ? { ...ev, event_type: j.event_type ?? editName, first_point: j.first_point ?? body.first_point ?? ev.first_point, second_point: j.second_point ?? body.second_point ?? ev.second_point, third_point: j.third_point ?? body.third_point ?? ev.third_point } : ev))
+                          setEditEvent(null)
+                        } catch (err) {
+                          console.error(err)
+                          try { alert('Failed to update event') } catch (e) {}
+                        }
+                      }}>Save</button>
+                    </div>
                   </div>
-                ) : null}
+                </div>
+              )}
             </>
           )}
         </main>
@@ -470,7 +534,7 @@ export default function EventsPage() {
 
       {/* Sign Out Loading Overlay */}
       {showSignOutLoading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-80 flex items-center justify-center bg-white/80 backdrop-blur-md animate-in fade-in duration-300">
           <div className="flex flex-col items-center space-y-6">
             <div className="flex space-x-3">
               <div 

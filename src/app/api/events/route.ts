@@ -18,29 +18,36 @@ export async function GET() {
 
   const supabase = res.supabase
   try {
-    // Try to order by `time` (newer schema). If that column doesn't exist, fall back to `date`.
-    let data: any = null
-    let error: any = null
+    // Try to order by `time` (newer schema). If ordering fails (missing column or similar),
+    // fall back to returning rows without ordering to avoid referencing a non-existent `date` column.
     try {
       const r = await supabase.from("events").select("*").order("time", { ascending: true })
-      data = r.data
-      error = r.error
-    } catch (e) {
-      // ignore and fallback
-    }
+      if (r.error) {
+        console.warn('ordering by time failed, returning events without ordering', r.error)
+        const r2 = await supabase.from("events").select("*")
+        if (r2.error) {
+          console.error("Supabase error (events GET):", r2.error)
+          return NextResponse.json({ error: r2.error.message || String(r2.error), details: r2.error }, { status: 500 })
+        }
+        return NextResponse.json(r2.data || [], { status: 200 })
+      }
 
-    if (error) {
-      const r2 = await supabase.from("events").select("*").order("date", { ascending: true })
-      data = r2.data
-      error = r2.error
+      return NextResponse.json(r.data || [], { status: 200 })
+    } catch (e: any) {
+      console.error('Unexpected supabase exception (events GET):', e)
+      // Try a plain select as a last resort
+      try {
+        const r3 = await supabase.from("events").select("*")
+        if (r3.error) {
+          console.error('Fallback select also failed (events GET):', r3.error)
+          return NextResponse.json({ error: r3.error.message || String(r3.error), details: r3.error }, { status: 500 })
+        }
+        return NextResponse.json(r3.data || [], { status: 200 })
+      } catch (e2: any) {
+        console.error('Final fallback failed (events GET):', e2)
+        return NextResponse.json({ error: e2?.message || String(e2) }, { status: 500 })
+      }
     }
-
-    if (error) {
-      console.error("Supabase error (events GET):", error)
-      return NextResponse.json({ error: error.message, details: error }, { status: 500 })
-    }
-
-    return NextResponse.json(data || [], { status: 200 })
   } catch (err: any) {
     console.error("Unexpected error (events GET):", err)
     return NextResponse.json({ error: err.message || String(err) }, { status: 500 })
@@ -64,6 +71,10 @@ export async function POST(req: Request) {
       location?: string | null
       matchup?: string | null
       points?: number | null
+      points_breakdown?: any | null
+      first_point?: number | null
+      second_point?: number | null
+      third_point?: number | null
       team_a_id?: string | number | null
       team_b_id?: string | number | null
     }
@@ -72,12 +83,14 @@ export async function POST(req: Request) {
     const time = String(body.time || "").trim()
     const location = body.location ? String(body.location) : null
     let matchup = body.matchup ? String(body.matchup) : null
+    // accept points_breakdown (object with first/second/third) from client
+    const points_breakdown = body.points_breakdown ?? null
     // Coerce team ids to numbers if possible (frontend should send numbers)
     const team_a_id = body.team_a_id != null && body.team_a_id !== '' ? Number(body.team_a_id) : null
     const team_b_id = body.team_b_id != null && body.team_b_id !== '' ? Number(body.team_b_id) : null
 
-    if (!event_type || !time) {
-      return NextResponse.json({ error: "Event type and time are required" }, { status: 400 })
+    if (!event_type) {
+      return NextResponse.json({ error: "Event type is required" }, { status: 400 })
     }
 
     // If matchup is missing but team ids are provided, try to look up team names
@@ -114,21 +127,29 @@ export async function POST(req: Request) {
 
     const insertPayload: {
       event_type?: string
-      time: string
+      time?: string
       date?: string | null
       location?: string | null
       matchup?: string | null
       team_a_id?: number | null
       team_b_id?: number | null
       points?: number | null
-    } = { time, location }
+      first_point?: number | null
+      second_point?: number | null
+      third_point?: number | null
+    } = {}
     // store the new column `event_type` only — do not write legacy `title` or `name`
     insertPayload.event_type = event_type
+    if (time) insertPayload.time = time
     if (date) insertPayload.date = date
     if (matchup) insertPayload.matchup = matchup
     if (team_a_id != null) insertPayload.team_a_id = team_a_id
     if (team_b_id != null) insertPayload.team_b_id = team_b_id
-    if (body.points != null) insertPayload.points = Number(body.points)
+    // legacy `points` column removed from DB; do not attempt to insert it
+    // accept explicit separate point columns from client
+    if (body.first_point != null) insertPayload.first_point = Number(body.first_point)
+    if (body.second_point != null) insertPayload.second_point = Number(body.second_point)
+    if (body.third_point != null) insertPayload.third_point = Number(body.third_point)
 
     // Try inserting; if we get a UUID parsing error (apps may send numeric team IDs
     // while the DB column is uuid), retry without team id fields so the event still creates.
@@ -157,8 +178,26 @@ export async function POST(req: Request) {
         return NextResponse.json(r2.data, { status: 201 })
       }
 
+      // If insert failed due to missing `time` NOT NULL constraint, retry with a fallback timestamp
+      const msg = String(err?.message || '')
+      const isTimeNotNull = msg.includes('null value') && msg.includes('time')
+      if (isTimeNotNull && !insertPayload.time) {
+        console.warn('Insert failed due to missing time column; retrying with fallback timestamp')
+        insertPayload.time = new Date().toISOString()
+        try {
+          const r3 = await supabase.from('events').insert([insertPayload]).select().single()
+          if (!r3.error) return NextResponse.json(r3.data, { status: 201 })
+          // if still error, fallthrough to return below
+          console.error('Retry with fallback time also failed:', r3.error)
+          return NextResponse.json({ error: r3.error.message, details: r3.error }, { status: 500 })
+        } catch (e) {
+          console.error('Unexpected error during retry with fallback time:', e)
+          return NextResponse.json({ error: String(e) }, { status: 500 })
+        }
+      }
+
       console.error("Supabase error (events POST):", err)
-      return NextResponse.json({ error: err.message, details: err }, { status: 500 })
+      return NextResponse.json({ error: err.message || String(err), details: err }, { status: 500 })
     }
 
     const data = insertResult.data
@@ -179,6 +218,9 @@ export async function PATCH(req: Request) {
       location?: string | null
       matchup?: string | null
       points?: number | null
+      first_point?: number | null
+      second_point?: number | null
+      third_point?: number | null
       team_a_id?: string | number | null
       team_b_id?: string | number | null
     }
@@ -194,6 +236,9 @@ export async function PATCH(req: Request) {
       team_b_id?: number | null | string
       date?: string
       points?: number | null
+      first_point?: number | null
+      second_point?: number | null
+      third_point?: number | null
     } = {}
     // accept new `event_type` field, fall back to `name` for compatibility
     if (body.event_type) payload.event_type = body.event_type
@@ -201,7 +246,10 @@ export async function PATCH(req: Request) {
     if (body.time) payload.time = body.time
     if (body.location) payload.location = body.location
     if (body.matchup) payload.matchup = body.matchup
-    if (body.points != null) payload.points = Number(body.points)
+    // legacy `points` column removed from DB; do not attempt to update it
+    if (body.first_point != null) payload.first_point = Number(body.first_point)
+    if (body.second_point != null) payload.second_point = Number(body.second_point)
+    if (body.third_point != null) payload.third_point = Number(body.third_point)
 
     // coerce team ids when provided
     if (body.team_a_id != null && body.team_a_id !== '') {
@@ -247,13 +295,47 @@ export async function PATCH(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    const body = await req.json()
-    const { id } = body
-    if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+    // Try to read id from JSON body, but accept query param as a fallback
+    let id: any = null
+    try {
+      const body = await req.json()
+      id = body?.id ?? null
+    } catch (e) {
+      // ignore JSON parse errors and try query param
+    }
+
+    if (!id) {
+      try {
+        const url = new URL(req.url)
+        id = url.searchParams.get('id')
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (!id && id !== 0) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+
+    // coerce numeric ids when appropriate. If id isn't numeric, don't pass it to DB (bigint columns will error).
+    const idStr = String(id)
+    const isNumeric = /^-?\d+$/.test(idStr)
+    if (!isNumeric) {
+      console.warn('DELETE called with non-numeric id:', id)
+      return NextResponse.json({ error: `Invalid id format for deletion: ${idStr}` }, { status: 400 })
+    }
+    const finalId: number = Number(idStr)
+
     const supabase = (await getSupabaseClient()).supabase
-    const { data, error } = await supabase.from('events').delete().eq('id', id).select().maybeSingle()
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ id: data?.id ?? id }, { status: 200 })
+    const { data, error } = await supabase.from('events').delete().eq('id', finalId).select().maybeSingle()
+    if (error) {
+      console.error('DELETE /api/events supabase error:', error)
+      return NextResponse.json({ error: error.message || String(error), details: error }, { status: 500 })
+    }
+
+    if (!data) {
+      return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ id: data?.id ?? finalId }, { status: 200 })
   } catch (err: any) {
     console.error('DELETE /api/events error', err)
     return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 })
