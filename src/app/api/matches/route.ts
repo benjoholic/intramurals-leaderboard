@@ -41,12 +41,14 @@ export async function POST(req: Request) {
       team_a_id?: string | number | null
       team_b_id?: string | number | null
       time?: string
+      gender?: string | null
       location?: string | null
       score_a?: number | null
       score_b?: number | null
+        participants?: string[] | null
     }
 
-    const { event_id, team_a_id, team_b_id, time, location, score_a, score_b } = body
+    const { event_id, team_a_id, team_b_id, time, gender, location, score_a, score_b, participants } = body
 
     if (!time) return NextResponse.json({ error: 'Missing time for match' }, { status: 400 })
 
@@ -55,9 +57,11 @@ export async function POST(req: Request) {
       team_a_id?: number | null
       team_b_id?: number | null
       time: string
+      gender?: string | null
       location?: string | null
       score_a?: number | null
       score_b?: number | null
+        participants?: string[] | null
     } = { time }
 
     if (event_id != null && event_id !== '') {
@@ -77,8 +81,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'team_a_id and team_b_id must be different' }, { status: 400 })
     }
     if (location) payload.location = String(location)
+    if (gender && gender !== '') payload.gender = String(gender)
     if (typeof score_a === 'number') payload.score_a = score_a
     if (typeof score_b === 'number') payload.score_b = score_b
+      if (participants && Array.isArray(participants)) payload.participants = participants
 
     const { data, error } = await supabase.from('matches').insert([payload]).select().single()
     if (error) return NextResponse.json({ error: error.message, details: error }, { status: 500 })
@@ -104,9 +110,11 @@ export async function PATCH(req: Request) {
       team_a_id?: string | number | null
       team_b_id?: string | number | null
       time?: string
+      gender?: string | null
       location?: string | null
       score_a?: number | null
       score_b?: number | null
+        participants?: string[] | null
     }
     const { id } = body
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
@@ -129,7 +137,9 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: 'team_a_id and team_b_id must be different' }, { status: 400 })
     }
     if (body.time) payload.time = body.time
+    if (body.gender != null) payload.gender = body.gender
     if (body.location) payload.location = body.location
+      if (body.participants != null) payload.participants = body.participants
     if (typeof body.score_a === 'number') payload.score_a = body.score_a
     if (typeof body.score_b === 'number') payload.score_b = body.score_b
 

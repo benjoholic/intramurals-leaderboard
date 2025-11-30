@@ -7,7 +7,7 @@ import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
-import { isAdmin } from "@/lib/auth-helpers"
+import { isAdmin, getUserRole } from "@/lib/auth-helpers"
 
 export default function AdminLogin() {
   const [showPassword, setShowPassword] = useState(false)
@@ -37,41 +37,60 @@ export default function AdminLogin() {
       }
 
       if (data.user) {
-        // Check if the user is an admin
-        const userIsAdmin = await isAdmin(data.user.id)
-        
-        if (!userIsAdmin) {
-          // Sign out the user since they don't have admin privileges
-          await supabase.auth.signOut()
-          
-          const errorMessage = "Invalid credentials or insufficient permissions. Please check your login details."
-          setError(errorMessage)
-          
-          toast.error("Authentication Failed", {
-            description: errorMessage,
-            icon: <AlertCircle className="w-5 h-5" />,
+        // Prefer role from DB `admin_users.role` but fall back to user metadata
+        const dbRole = await getUserRole(data.user.id)
+        const metaRole = (data.user.user_metadata as any)?.role as string | undefined
+        const role = dbRole ?? metaRole
+
+        // Check if the user is an admin via admin_users table (or role)
+        const userIsAdmin = (role === 'admin') || await isAdmin(data.user.id)
+
+        // If user is admin, go to admin dashboard
+        if (userIsAdmin) {
+          toast.success("Welcome back, Admin!", {
+            description: "Successfully signed in",
+            icon: <CheckCircle className="w-5 h-5" />,
             closeButton: false,
+            duration: 3000,
           })
-          
-          setIsLoading(false)
+
+          setShowLoadingOverlay(true)
+
+          setTimeout(() => {
+            router.push("/admin/dashboard")
+          }, 3000)
           return
         }
 
-        // Show success toast
-        toast.success("Welcome back, Admin!", {
-          description: "Successfully signed in",
-          icon: <CheckCircle className="w-5 h-5" />,
+        // If user is a coordinator (from DB role or metadata), allow and redirect to coordinator dashboard
+        if (role === "coordinator") {
+          toast.success("Welcome back, Coordinator!", {
+            description: "Successfully signed in",
+            icon: <CheckCircle className="w-5 h-5" />,
+            closeButton: false,
+            duration: 1500,
+          })
+
+          setShowLoadingOverlay(true)
+          setTimeout(() => {
+            router.push("/coordinator/dashboard")
+          }, 800)
+          return
+        }
+
+        // Otherwise deny access
+        await supabase.auth.signOut()
+        const errorMessage = "Invalid credentials or insufficient permissions. Please check your login details."
+        setError(errorMessage)
+
+        toast.error("Authentication Failed", {
+          description: errorMessage,
+          icon: <AlertCircle className="w-5 h-5" />,
           closeButton: false,
-          duration: 3000,
         })
 
-        // Show loading overlay
-        setShowLoadingOverlay(true)
-
-        // Redirect to admin dashboard after toast disappears (3 seconds)
-        setTimeout(() => {
-          router.push("/admin/dashboard")
-        }, 3000)
+        setIsLoading(false)
+        return
       }
     } catch (err: unknown) {
       console.error("Login error:", err)

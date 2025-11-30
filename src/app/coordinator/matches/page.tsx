@@ -4,6 +4,10 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Home, Users, Calendar, Trophy, Settings, BarChart3, LogOut, Shuffle, Clock, MapPin, X } from "lucide-react"
+import DefaultCard from '../../admin/matches_cards/DefaultCard'
+import BasketballCard from '../../admin/matches_cards/BasketballCard'
+import VolleyballCard from '../../admin/matches_cards/VolleyballCard'
+import RunningCard from '../../admin/matches_cards/RunningCard'
 import Link from "next/link"
 import Image from "next/image"
 import {
@@ -165,6 +169,24 @@ export default function CoordinatorMatchesPage() {
     }
   }
 
+  const getEventStyle = (eventType?: string) => {
+    const t = (eventType ?? '').toLowerCase()
+    switch (t) {
+      case 'basketball':
+        return { header: 'bg-orange-600', bannerFrom: 'from-orange-700', bannerTo: 'to-orange-500' }
+      case 'volleyball':
+        return { header: 'bg-emerald-600', bannerFrom: 'from-emerald-700', bannerTo: 'to-emerald-500' }
+      case 'running':
+      case 'track':
+        return { header: 'bg-sky-600', bannerFrom: 'from-sky-700', bannerTo: 'to-sky-500' }
+      case 'football':
+      case 'soccer':
+        return { header: 'bg-red-600', bannerFrom: 'from-red-700', bannerTo: 'to-red-500' }
+      default:
+        return { header: 'bg-green-600', bannerFrom: 'from-emerald-700', bannerTo: 'to-emerald-500' }
+    }
+  }
+
   return (
     <SidebarProvider>
       <Sidebar className="border-r-2 border-green-600">
@@ -274,71 +296,10 @@ export default function CoordinatorMatchesPage() {
                     const isCompleted = (typeof m.score_a === 'number' || typeof m.score_b === 'number') || (d ? d < new Date() : false)
                     const status = m.status ?? (isCompleted ? 'completed' : 'upcoming')
 
-                    return (
-                      <div key={m.id} className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
-                        <div className="bg-green-600 text-white px-4 py-3 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Trophy className="w-4 h-4 text-white" />
-                            <span className="text-white text-sm font-semibold">{ev?.event_type ?? 'Event'}</span>
-                          </div>
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(status)} text-white/95 bg-white/10 border-white/20`}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>
-                        </div>
-
-                        <div className="p-6">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              {teamA?.logo ? (
-                                <div className="w-12 h-12 rounded-full overflow-hidden">
-                                  <Image src={teamA.logo} alt={`${teamA.name} logo`} width={48} height={48} className="w-12 h-12 object-cover" />
-                                </div>
-                              ) : (
-                                <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-700 font-semibold text-lg">{(teamA?.name||'').split(' ').map(s=>s[0]).slice(0,2).join('').toUpperCase()}</div>
-                              )}
-                              <div className="min-w-0">
-                                <p className="text-lg font-bold text-gray-900 truncate">{teamA?.name}</p>
-                              </div>
-                            </div>
-                            <div className="text-2xl font-extrabold text-gray-900">{m.score_a ?? '0'}</div>
-                          </div>
-
-                          <div className="flex items-center justify-center my-4">
-                            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-                            <span className="px-4 text-sm font-bold text-gray-400">VS</span>
-                            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              {teamB?.logo ? (
-                                <div className="w-12 h-12 rounded-full overflow-hidden">
-                                  <Image src={teamB.logo} alt={`${teamB.name} logo`} width={48} height={48} className="w-12 h-12 object-cover" />
-                                </div>
-                              ) : (
-                                <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-700 font-semibold text-lg">{(teamB?.name||'').split(' ').map(s=>s[0]).slice(0,2).join('').toUpperCase()}</div>
-                              )}
-                              <div className="min-w-0">
-                                <p className="text-lg font-bold text-gray-900 truncate">{teamB?.name}</p>
-                              </div>
-                            </div>
-                            <div className="text-2xl font-extrabold text-gray-900">{m.score_b ?? '0'}</div>
-                          </div>
-
-                          <div className="mt-4 h-px bg-gray-100" />
-
-                          <div className="mt-4 text-sm text-gray-600">
-                            <div className="bg-transparent">
-                              <div className="flex items-center gap-3 py-2 px-2"><Calendar className="w-4 h-4 text-green-600" /><span>{formattedDate}</span></div>
-                              <div className="flex items-center gap-3 py-2 px-2"><Clock className="w-4 h-4 text-green-600" /><span>{formattedTime}</span></div>
-                              <div className="flex items-center gap-3 py-2 px-2"><MapPin className="w-4 h-4 text-green-600" /><span>{m.location ?? ev?.location ?? ''}</span></div>
-                            </div>
-
-                            <div className="mt-6 px-0">
-                              <button onClick={() => openDetails(m)} className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold shadow-sm">View / Score</button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )
+                    const cardProps = { m, ev, teamA, teamB, formattedDate, formattedTime, status, evtStyle: getEventStyle(ev?.event_type), onView: () => openDetails(m) }
+                    const et = (ev?.event_type ?? '').toLowerCase()
+                    const CardComponent = et.includes('basketball') ? BasketballCard : et.includes('running') || et.includes('track') ? RunningCard : et.includes('volleyball') ? VolleyballCard : DefaultCard
+                    return <CardComponent key={m.id} {...cardProps} />
                   })
                 )}
               </div>
@@ -351,10 +312,29 @@ export default function CoordinatorMatchesPage() {
       {showDetails && selectedMatch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-6">
           <div className="relative w-full max-w-3xl bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
-            <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-r from-emerald-700 to-emerald-500" />
+            {/* Themed gradient banner with date/time/location */}
+            <div className={`absolute top-0 left-0 right-0 h-20 bg-gradient-to-r ${getEventStyle(eventsList.find(e => String(e.id) === String(selectedMatch?.event_id))?.event_type).bannerFrom} ${getEventStyle(eventsList.find(e => String(e.id) === String(selectedMatch?.event_id))?.event_type).bannerTo} text-white`}>
+              <div className="h-full px-8 pr-20 flex items-center justify-between">
+                <div className="text-sm text-white/90">Match ID: {selectedMatch.id}</div>
+                <div className="flex items-center gap-6 text-sm text-white/95">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-white/95" />
+                    <span className="whitespace-nowrap">{selectedMatch.time ? new Date(selectedMatch.time).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-white/95" />
+                    <span className="whitespace-nowrap">{selectedMatch.time ? new Date(selectedMatch.time).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : ''}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-white/95" />
+                    <span className="whitespace-nowrap">{selectedMatch.location ?? eventsList.find(e => String(e.id) === String(selectedMatch.event_id))?.location ?? ''}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-            <div className="absolute top-4 right-4">
-              <button onClick={() => setShowDetails(false)} className="w-10 h-10 rounded-full bg-white shadow hover:bg-gray-50 flex items-center justify-center">
+            <div className="absolute top-4 right-8">
+              <button aria-label="Close details" onClick={() => setShowDetails(false)} className="w-10 h-10 rounded-full bg-white shadow hover:bg-gray-50 flex items-center justify-center">
                 <X className="w-4 h-4 text-gray-600" />
               </button>
             </div>
@@ -363,7 +343,6 @@ export default function CoordinatorMatchesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-2xl font-extrabold text-gray-900">{(eventsList.find(e => String(e.id) === String(selectedMatch.event_id))?.event_type) ?? 'Match Details'}</h3>
-                  <p className="text-sm text-gray-500">Match ID: {selectedMatch.id}</p>
                 </div>
                 <div className="inline-flex items-center gap-3">
                   <span className="px-3 py-1 rounded-full text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">{eventsList.find(e => String(e.id) === String(selectedMatch.event_id))?.event_type}</span>
@@ -372,40 +351,85 @@ export default function CoordinatorMatchesPage() {
 
               <div className="mt-4 h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
 
-              <div className="mt-8 flex items-center justify-between gap-6">
-                <div className="flex-1 flex flex-col items-center text-center">
-                  {(() => {
-                    const teamA = teamsList.find(t => String(t.id) === String(selectedMatch.team_a_id))
-                    if (teamA?.logo) return (<div className="w-32 h-32 rounded-full overflow-hidden ring-4 ring-emerald-50 shadow-md"><Image src={teamA.logo} alt={teamA.name} width={128} height={128} className="w-32 h-32 object-cover" /></div>)
-                    return (<div className="w-32 h-32 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-700 font-bold text-2xl ring-4 ring-emerald-50 shadow-md">{(teamA?.name||'').split(' ').map(s=>s[0]).slice(0,2).join('').toUpperCase()}</div>)
-                  })()}
-                  <div className="w-20 h-px bg-gray-100 mt-4" />
-                  <p className="mt-4 text-lg font-semibold text-gray-900">{teamsList.find(t => String(t.id) === String(selectedMatch.team_a_id))?.name}</p>
-                  <div className="mt-2">
-                    <label className="text-sm text-gray-500 block mb-2">Score</label>
-                    <input type="number" value={editScoreA ?? ''} onChange={(e) => setEditScoreA(e.target.value === '' ? null : Number(e.target.value))} className="w-24 text-center text-4xl font-extrabold" />
+              <div className="mt-8">
+                {(((eventsList.find(e => String(e.id) === String(selectedMatch.event_id))?.event_type) ?? '').toLowerCase().includes('running') || ((eventsList.find(e => String(e.id) === String(selectedMatch.event_id))?.event_type) ?? '').toLowerCase().includes('track')) ? (
+                  <div>
+                    <h4 className="text-lg font-bold text-gray-900">Participants</h4>
+                    <div className="mt-4 space-y-3">
+                      {(selectedMatch.participants && Array.isArray(selectedMatch.participants) && selectedMatch.participants.length > 0) ? (
+                        selectedMatch.participants.map((p: string, i: number) => (
+                          <div key={i} className="flex items-center justify-between p-3 rounded-lg border">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-sky-50 flex items-center justify-center font-bold text-sky-700">{i+1}</div>
+                              <div>
+                                <div className="text-sm font-semibold text-gray-900">{p}</div>
+                              </div>
+                            </div>
+                            <div className="text-sm font-semibold text-gray-900">--:--</div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-sm text-gray-500">No entrants yet</div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="mt-8 flex items-center justify-between gap-6">
+                    <div className="flex-1 flex flex-col items-center text-center">
+                      {(() => {
+                        const teamA = teamsList.find(t => String(t.id) === String(selectedMatch.team_a_id))
+                        if (teamA?.logo) return (<div className="w-32 h-32 rounded-full overflow-hidden ring-4 ring-emerald-50 shadow-md"><Image src={teamA.logo} alt={teamA.name} width={128} height={128} className="w-32 h-32 object-cover" /></div>)
+                        return (<div className="w-32 h-32 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-700 font-bold text-2xl ring-4 ring-emerald-50 shadow-md">{(teamA?.name||'').split(' ').map(s=>s[0]).slice(0,2).join('').toUpperCase()}</div>)
+                      })()}
+                      <div className="w-20 h-px bg-gray-100 mt-4" />
+                      <p className="mt-4 text-lg font-semibold text-gray-900">{teamsList.find(t => String(t.id) === String(selectedMatch.team_a_id))?.name}</p>
+                      {/* Result selector for Team A (coordinator view) */}
+                      <div className="mt-2">
+                        <label className="sr-only">Team A result</label>
+                        <select value={selectedMatch.team_a_result ?? (editScoreA != null && editScoreB != null ? (editScoreA > editScoreB ? 'Win' : editScoreA < editScoreB ? 'Lose' : 'Draw') : '')} onChange={(e) => setSelectedMatch((s: any) => ({ ...s, team_a_result: e.target.value }))} className="block w-32 rounded-md border px-2 py-1 text-sm">
+                          <option value="">Result</option>
+                          <option value="Win">Win</option>
+                          <option value="Lose">Lose</option>
+                          <option value="Draw">Draw</option>
+                        </select>
+                      </div>
+                      <div className="mt-2">
+                        <label className="text-sm text-gray-500 block mb-2">Score</label>
+                        <input type="number" value={editScoreA ?? ''} onChange={(e) => setEditScoreA(e.target.value === '' ? null : Number(e.target.value))} className="w-24 text-center text-4xl font-extrabold" />
+                      </div>
+                    </div>
 
-                <div className="flex-shrink-0 flex flex-col items-center justify-center">
-                  <div className="w-28 h-28 rounded-full bg-gradient-to-br from-emerald-600 to-emerald-400 shadow-md flex items-center justify-center">
-                    <div className="text-6xl font-extrabold text-white">VS</div>
-                  </div>
-                </div>
+                    <div className="flex-shrink-0 flex flex-col items-center justify-center">
+                      <div className="w-28 h-28 rounded-full bg-gradient-to-br from-emerald-600 to-emerald-400 shadow-md flex items-center justify-center">
+                        <div className="text-6xl font-extrabold text-white">VS</div>
+                      </div>
+                    </div>
 
-                <div className="flex-1 flex flex-col items-center text-center">
-                  {(() => {
-                    const teamB = teamsList.find(t => String(t.id) === String(selectedMatch.team_b_id))
-                    if (teamB?.logo) return (<div className="w-32 h-32 rounded-full overflow-hidden ring-4 ring-sky-50 shadow-md"><Image src={teamB.logo} alt={teamB.name} width={128} height={128} className="w-32 h-32 object-cover" /></div>)
-                    return (<div className="w-32 h-32 rounded-full bg-blue-50 flex items-center justify-center text-blue-700 font-bold text-2xl ring-4 ring-sky-50 shadow-md">{(teamB?.name||'').split(' ').map(s=>s[0]).slice(0,2).join('').toUpperCase()}</div>)
-                  })()}
-                  <div className="w-20 h-px bg-gray-100 mt-4" />
-                  <p className="mt-4 text-lg font-semibold text-gray-900">{teamsList.find(t => String(t.id) === String(selectedMatch.team_b_id))?.name}</p>
-                  <div className="mt-2">
-                    <label className="text-sm text-gray-500 block mb-2">Score</label>
-                    <input type="number" value={editScoreB ?? ''} onChange={(e) => setEditScoreB(e.target.value === '' ? null : Number(e.target.value))} className="w-24 text-center text-4xl font-extrabold" />
+                    <div className="flex-1 flex flex-col items-center text-center">
+                      {(() => {
+                        const teamB = teamsList.find(t => String(t.id) === String(selectedMatch.team_b_id))
+                        if (teamB?.logo) return (<div className="w-32 h-32 rounded-full overflow-hidden ring-4 ring-sky-50 shadow-md"><Image src={teamB.logo} alt={teamB.name} width={128} height={128} className="w-32 h-32 object-cover" /></div>)
+                        return (<div className="w-32 h-32 rounded-full bg-blue-50 flex items-center justify-center text-blue-700 font-bold text-2xl ring-4 ring-sky-50 shadow-md">{(teamB?.name||'').split(' ').map(s=>s[0]).slice(0,2).join('').toUpperCase()}</div>)
+                      })()}
+                      <div className="w-20 h-px bg-gray-100 mt-4" />
+                      <p className="mt-4 text-lg font-semibold text-gray-900">{teamsList.find(t => String(t.id) === String(selectedMatch.team_b_id))?.name}</p>
+                      {/* Result selector for Team B (coordinator view) */}
+                      <div className="mt-2">
+                        <label className="sr-only">Team B result</label>
+                        <select value={selectedMatch.team_b_result ?? (editScoreA != null && editScoreB != null ? (editScoreB > editScoreA ? 'Win' : editScoreB < editScoreA ? 'Lose' : 'Draw') : '')} onChange={(e) => setSelectedMatch((s: any) => ({ ...s, team_b_result: e.target.value }))} className="block w-32 rounded-md border px-2 py-1 text-sm">
+                          <option value="">Result</option>
+                          <option value="Win">Win</option>
+                          <option value="Lose">Lose</option>
+                          <option value="Draw">Draw</option>
+                        </select>
+                      </div>
+                      <div className="mt-2">
+                        <label className="text-sm text-gray-500 block mb-2">Score</label>
+                        <input type="number" value={editScoreB ?? ''} onChange={(e) => setEditScoreB(e.target.value === '' ? null : Number(e.target.value))} className="w-24 text-center text-4xl font-extrabold" />
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               <div className="mt-8 grid grid-cols-3 gap-4 text-sm text-gray-600">

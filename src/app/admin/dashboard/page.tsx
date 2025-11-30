@@ -232,14 +232,14 @@ export default function AdminDashboard() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 {stats.map((s) => (
-                  <div key={s.id} className="bg-white rounded-2xl p-6 shadow">
+                  <div key={s.id} className="bg-white rounded-2xl p-6 shadow border-l-4 border-emerald-600">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-500">{s.title}</p>
-                        <p className="text-2xl font-semibold text-gray-900">{s.value}</p>
+                        <p className="text-sm text-emerald-700 font-medium">{s.title}</p>
+                        <p className="text-2xl font-semibold text-emerald-800">{s.value}</p>
                       </div>
                       {s.delta && (
-                        <div className="text-sm text-green-600 font-medium">{s.delta}</div>
+                        <div className="text-sm text-emerald-600 font-medium">{s.delta}</div>
                       )}
                     </div>
                   </div>
@@ -248,7 +248,7 @@ export default function AdminDashboard() {
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow">
-                  <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
+                  <h3 className="text-lg font-semibold mb-4 text-emerald-800">Recent Activity</h3>
                   <ul className="space-y-3">
                     {recentActivities.map((a) => (
                       <li key={a.id} className="flex items-center justify-between">
@@ -259,14 +259,7 @@ export default function AdminDashboard() {
                   </ul>
                 </div>
 
-                <div className="bg-white rounded-2xl p-6 shadow">
-                  <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-                  <div className="space-y-3">
-                    <button className="w-full text-left px-4 py-2 rounded-lg border">Create Event</button>
-                    <button className="w-full text-left px-4 py-2 rounded-lg border">Create Team</button>
-                    <button className="w-full text-left px-4 py-2 rounded-lg border">Export Standings</button>
-                  </div>
-                </div>
+                {/* Quick Actions removed per request */}
               </div>
             </>
           )}
